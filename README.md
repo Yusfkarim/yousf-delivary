@@ -146,6 +146,32 @@ maintained by a trigger.
 | `NEXT_PUBLIC_DEFAULT_CURRENCY` | optional | `IQD` (default) or `USD` |
 | `DATA_DIR` | optional | Directory for the JSON fallback store (defaults to `.data` or `/tmp` on Vercel) |
 
+### ئامادەکردنی ئێستا · Live deployment
+
+| | |
+| --- | --- |
+| ناونیشان | **https://yousf27.vercel.app** |
+| پرۆژە | `yousf27` (team `yusfkarim2001-1023's projects`) |
+| دۆخ | `READY` — production alias |
+
+ئەم پرۆژەیە هێشتا لە Vercel بە GitHub نەبەستراوە، بۆیە deployment ەکە لە ڕێگەی
+`deploy/vercel/setup.mjs` ئەنجام دراوە:
+
+- `Install Command` → `node setup.mjs install` (package.json + `npm install`)
+- `Build Command` → `node setup.mjs build && next build` (سەرچاوە لە GitHub دادەبەزێنێت)
+
+دوای بەستنەوەی **Vercel → Account Settings → Login Connections → GitHub**، دەتوانرێت
+ڕاستەوخۆ لە گیت deploy بکرێت و ئەم شیمە لاببرێت. هەتا ئەو کاتە، هەر جارێک کۆدی نوێ
+push بکرێت پێویستی بە **Redeploy** هەیە (یەک کلیک لە داشبۆرد یان لە ڕێگەی ئێمەوە).
+
+> ⚠️ دوو خاڵی گرنگ بۆ بەرهەمهێنان:
+> 1. **Deployment Protection** — بە شێوەی سەرەتایی «Vercel Authentication» چالاکە، بۆیە
+>    تەنها ئەندامانی هەژمار دەتوانن بیبینن. بۆ هاوبەشکردن لەگەڵ شۆفێرەکان:
+>    **Project → Settings → Deployment Protection → Vercel Authentication → Disable**.
+> 2. **داتابەیس** — بەبێ `POSTGRES_URL` ئەپەکە بە کۆگای JSON لە `/tmp` کار دەکات
+>    (داتا لەگەڵ هەر cold start دەسڕێتەوە). بۆ داتای هەمیشەیی:
+>    **Storage → Create → Postgres** و پاشان **Redeploy**.
+
 ---
 
 ## 🔌 API
@@ -205,7 +231,7 @@ schema.sql              Generated DDL (also applied automatically at runtime)
 
 ```bash
 npm run typecheck   # 0 TypeScript errors
-npm run selfcheck   # 10/10 logic tests
+npm run selfcheck   # 11/11 logic tests
 npm run build       # production build, no warnings
 ```
 
