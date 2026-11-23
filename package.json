@@ -1,0 +1,42 @@
+{
+  "name": "yousif-delivery",
+  "version": "1.0.0",
+  "private": true,
+  "description": "یوسف دلیڤەری — سیستەمی بەڕێوەبردنی گەیاندن بۆ کوردستان",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "schema:build": "node scripts/build-schema.mjs",
+    "icons": "node scripts/build-icons.mjs",
+    "selfcheck": "tsx --test scripts/selfcheck.ts"
+  },
+  "dependencies": {
+    "@fontsource/noto-sans-arabic": "5.3.0",
+    "@fontsource/vazirmatn": "5.3.0",
+    "@vercel/postgres": "0.10.0",
+    "clsx": "2.1.1",
+    "leaflet": "1.9.4",
+    "lucide-react": "1.78.0",
+    "next": "15.5.29",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-leaflet": "5.0.0"
+  },
+  "devDependencies": {
+    "@types/leaflet": "1.9.22",
+    "@types/node": "22.18.12",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "autoprefixer": "10.4.21",
+    "postcss": "8.5.6",
+    "sharp": "^0.34.4",
+    "tailwindcss": "3.4.17",
+    "tsx": "^4.20.6",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
