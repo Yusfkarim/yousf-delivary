@@ -1,6 +1,9 @@
 package com.yousif.delivery.viewmodel
 
 import android.app.Application
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.yousif.delivery.AppGraph
@@ -58,6 +61,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val messages: SharedFlow<String> = _messages.asSharedFlow()
+
+    private val _authError = MutableStateFlow<String?>(null)
+    val authError: StateFlow<String?> = _authError.asStateFlow()
 
     val customers: StateFlow<List<Customer>> = repository.customers
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -125,23 +131,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             _busy.value = true
+            _authError.value = null
             val result = api.verify(_baseUrl.value, candidate)
-            if (result.ok) {
-                if (result.value == true) {
-                    enterApp(candidate)
-                } else {
-                    emit("وشەی نهێنی هەڵەیە")
-                }
-            } else {
-                val offlineButKnown = result.code == 0 && session.password == candidate
-                when {
-                    offlineButKnown -> enterApp(candidate, offline = true)
-                    result.code == 0 -> emit("پەیوەندی بە ئینتەرنێتەوە نییە")
-                    else -> emit("وشەی نهێنی هەڵەیە")
-                }
+            when {
+                result.ok && result.value == true -> enterApp(candidate)
+                result.ok -> fail("وشەی نهێنی هەڵەیە")
+                result.code == ApiClient.CODE_OFFLINE && session.password == candidate ->
+                    enterApp(candidate, offline = true)
+                else -> fail(explain(result.code))
             }
             _busy.value = false
         }
+    }
+
+    fun clearAuthError() {
+        _authError.value = null
+    }
+
+    private fun fail(message: String) {
+        _authError.value = message
+        emit(message)
+    }
+
+    private fun hasInternet(): Boolean {
+        val manager = getApplication<Application>()
+            .getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return true
+        val network = manager.activeNetwork ?: return false
+        val caps = manager.getNetworkCapabilities(network) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    /** Turns an API failure code into an honest Kurdish message. */
+    private fun explain(code: Int): String = when {
+        code == ApiClient.CODE_PROTECTED ->
+            "سێرڤەر بە Vercel SSO پارێزراوە — لە Vercel «Deployment Protection» بکوژێنەرەوە"
+        code == ApiClient.CODE_OFFLINE && hasInternet() ->
+            "سێرڤەر نەگەیشت — ناونیشانەکە یان ئینتەرنێت بپشکنە (VPN)"
+        code == ApiClient.CODE_OFFLINE -> "پەیوەندی بە ئینتەرنێتەوە نییە"
+        code == 401 -> "وشەی نهێنی هەڵەیە"
+        else -> "هەڵەی سێرڤەر: " + code
     }
 
     private fun enterApp(password: String, offline: Boolean = false) {
@@ -211,8 +239,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             emit(
                 if (ok) {
                     "هەموو داتاکان لەگەڵ سێرڤەر یەکسانن ✓"
+                } else if (!hasInternet()) {
+                    "چاوەڕوانی ئینتەرنێتە"
                 } else {
-                    "هەندێک گۆڕانکاری چاوەڕوانی ئینتەرنێتن"
+                    "سێرڤەر وەڵامی نەدایەوە — ناونیشان/پاراستن بپشکنە"
                 },
             )
         }
@@ -235,16 +265,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _busy.value = true
             val result = api.verify(_baseUrl.value, session.password.ifEmpty { "12345678rk" })
-            if (result.ok) {
-                emit("پەیوەندی سەرکەوتوو ✓")
-            } else {
-                emit(
-                    when (result.code) {
-                        0 -> "ناتوانرێت پەیوەندی بکرێت"
-                        401 -> "سێرڤەر وەڵام دەداتەوە (وشەی نهێنی پشکنین)"
-                        else -> "هەڵا: ${result.code}"
-                    },
-                )
+            when {
+                result.ok && result.value == true -> emit("پەیوەندی سەرکەوتوو ✓")
+                result.ok -> emit("سێرڤەر وەڵام دەداتەوە، بەڵام وشەی نهێنی هەڵەیە")
+                else -> emit(explain(result.code))
             }
             _busy.value = false
         }

@@ -38,12 +38,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yousif.delivery.ui.theme.AppBackground
+import com.yousif.delivery.ui.theme.AppDanger
 import com.yousif.delivery.ui.theme.AppSurface
 import com.yousif.delivery.ui.theme.AppTextPrimary
 import com.yousif.delivery.ui.theme.AppTextSecondary
@@ -53,6 +55,7 @@ import com.yousif.delivery.viewmodel.MainViewModel
 @Composable
 fun LockScreen(viewModel: MainViewModel) {
     val busy by viewModel.busy.collectAsStateWithLifecycle()
+    val authError by viewModel.authError.collectAsStateWithLifecycle()
     val baseUrl by viewModel.baseUrl.collectAsStateWithLifecycle()
 
     var password by remember { mutableStateOf("") }
@@ -107,7 +110,10 @@ fun LockScreen(viewModel: MainViewModel) {
 
             OutlinedTextField(
                 value = password,
-                onValueChange = { password = it },
+                onValueChange = {
+                    password = it
+                    viewModel.clearAuthError()
+                },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 label = { Text("وشەی نهێنی") },
@@ -140,6 +146,18 @@ fun LockScreen(viewModel: MainViewModel) {
                 } else {
                     Text("چوونەژوورەوە", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 }
+            }
+
+            val error = authError
+            if (error != null) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = error,
+                    color = AppDanger,
+                    fontSize = 11.5.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
 
             Spacer(Modifier.height(10.dp))
