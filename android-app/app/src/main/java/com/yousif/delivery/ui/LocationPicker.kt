@@ -92,7 +92,7 @@ fun LocationPickerDialog(
                     .padding(horizontal = 12.dp)
                     .clip(RoundedCornerShape(24.dp)),
             ) {
-                OsmMap(
+                TileMap(
                     modifier = Modifier.fillMaxSize(),
                     center = picked,
                     zoom = 16.0,

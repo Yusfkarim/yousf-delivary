@@ -46,7 +46,7 @@ fun MapScreen(
         ?.first
 
     Box(modifier.fillMaxSize()) {
-        OsmMap(
+        TileMap(
             modifier = Modifier.fillMaxSize(),
             center = if (pinned.size == 1) {
                 pinned.first().let { MapPoint(it.latitude, it.longitude) }
