@@ -51,6 +51,7 @@ fun MapScreen(
             zoom = 14.0,
             me = myLocation?.let { MapPoint(it.latitude, it.longitude, "شوێنی من") },
             points = pinned.map { MapPoint(it.latitude, it.longitude, it.name) },
+            allowStyleSwitch = true,
             onLocate = onLocate,
         )
 
@@ -69,13 +70,13 @@ fun MapScreen(
                             Text(
                                 text = closest.name,
                                 color = colors.textPrimary,
-                                fontSize = 14.5.sp,
+                                fontSize = 15.5.sp,
                                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                             )
                             Text(
                                 text = TextUtils.distance(distanceOf(closest)),
                                 color = colors.textSecondary,
-                                fontSize = 11.5.sp,
+                                fontSize = 12.5.sp,
                             )
                         }
                         StatPill(
@@ -106,9 +107,9 @@ fun MapScreen(
                                 .padding(4.dp),
                         ) {
                             Text(
-                                text = "هیچ کڕیارێک شوێنی تۆمارکراوی نییە",
+                                text = "هیچ شوێنێکی تۆمارکراو نییە",
                                 color = colors.textSecondary,
-                                fontSize = 12.5.sp,
+                                fontSize = 13.5.sp,
                             )
                         }
                     }

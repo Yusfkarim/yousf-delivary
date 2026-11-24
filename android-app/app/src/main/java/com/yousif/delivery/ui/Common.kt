@@ -72,11 +72,19 @@ fun SectionHeader(
             .padding(start = 4.dp, end = 4.dp, top = 18.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .height(15.dp)
+                .clip(RoundedCornerShape(50))
+                .background(colors.brand.copy(alpha = 0.75f)),
+        )
+        Spacer(Modifier.width(7.dp))
         Text(
             text = text,
-            color = colors.textSecondary,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
+            color = colors.textPrimary,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.Start,
         )
@@ -472,7 +480,7 @@ fun Segmented(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(38.dp)
+                    .height(42.dp)
                     .clip(RoundedCornerShape(50))
                     .background(if (selected) colors.brand else Color.Transparent)
                     .clickable { onSelect(index) },
@@ -481,7 +489,7 @@ fun Segmented(
                 Text(
                     text = option,
                     color = if (selected) colors.onBrand else colors.textSecondary,
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                 )
             }

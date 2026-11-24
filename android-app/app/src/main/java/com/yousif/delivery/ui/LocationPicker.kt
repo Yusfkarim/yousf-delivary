@@ -96,6 +96,7 @@ fun LocationPickerDialog(
                     zoom = 16.0,
                     me = me,
                     customer = picked?.let { MapPoint(it.latitude, it.longitude, "شوێنی هەڵبژێردراو") },
+                    allowStyleSwitch = true,
                     onTap = { lat, lng -> picked = MapPoint(lat, lng) },
                     onLocate = me?.let {
                         { picked = MapPoint(it.latitude, it.longitude) }
