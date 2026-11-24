@@ -177,6 +177,7 @@ class CustomerRepository(
         if (!result.ok) {
             return@withContext SyncResult(ok = false, code = result.code, message = result.message)
         }
+        remember(result.baseUrl)
         applyRemote(result.value.orEmpty())
         SyncResult(ok = pushed, code = 200, message = if (pushed) null else "pending push")
     }
@@ -206,8 +207,18 @@ class CustomerRepository(
     suspend fun pullRemote(): Boolean = withContext(Dispatchers.IO) {
         val result = api.list(session.baseUrl, session.password)
         if (!result.ok) return@withContext false
+        remember(result.baseUrl)
         applyRemote(result.value.orEmpty())
         true
+    }
+
+    /**
+     * Keeps the address that really answered, so the next call goes straight to it
+     * (this is how a URL saved with `/api` on the end heals itself).
+     */
+    private fun remember(resolved: String?) {
+        if (resolved.isNullOrBlank()) return
+        if (!session.baseUrl.equals(resolved, ignoreCase = true)) session.baseUrl = resolved
     }
 
     /** Merges the cloud rows into Room without touching unsynced local rows. */
@@ -228,6 +239,7 @@ class CustomerRepository(
     private suspend fun pushSingle(customer: Customer): PushOutcome {
         val result = api.upsert(session.baseUrl, session.password, customer)
         if (result.ok) {
+            remember(result.baseUrl)
             val saved = result.value
             if (saved != null) {
                 dao.upsert(saved.toDomain(SyncStatus.SYNCED).toEntity())
@@ -241,6 +253,7 @@ class CustomerRepository(
     private suspend fun pushDelete(id: String): PushOutcome {
         val result = api.delete(session.baseUrl, session.password, id)
         if (result.ok) {
+            remember(result.baseUrl)
             dao.deleteById(id)
             return PushOutcome.SYNCED
         }

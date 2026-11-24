@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yousif.delivery.data.Customer
 import com.yousif.delivery.data.Kinds
+import com.yousif.delivery.data.remote.ApiClient
 import com.yousif.delivery.ui.icons.AppIcons
 import com.yousif.delivery.ui.theme.LocalAppColors
 import com.yousif.delivery.util.ShareInbox
@@ -61,6 +62,89 @@ import com.yousif.delivery.util.hasLocationPermission
 import com.yousif.delivery.viewmodel.MainViewModel
 
 private enum class HomeTab { CUSTOMERS, SHOPS, GOODS, MAP }
+
+/**
+ * A calm, explicit notice instead of an empty list that looks like lost data:
+ * the phone could not read the server, so «nothing here» is not the truth.
+ */
+@Composable
+private fun ServerNotice(
+    code: Int,
+    onRetry: () -> Unit,
+    onFixAddress: () -> Unit,
+) {
+    val colors = LocalAppColors.current
+    val title = when (code) {
+        404 -> "ناونیشانی سێرڤەر هەڵەیە (404)"
+        ApiClient.CODE_PROTECTED -> "سێرڤەر بە Vercel SSO پارێزراوە"
+        ApiClient.CODE_OFFLINE -> "سێرڤەر نەگەیشت — ئینتەرنێت بپشکنە"
+        401 -> "وشەی نهێنی سێرڤەر ڕەتکرایەوە"
+        else -> "داتای سێرڤەر هێشتا نەهاتووە ($code)"
+    }
+    val hint = if (code == 404) {
+        "داتاکانت لەسەر سێرڤەر سەلامەتن — تەنها ناونیشانەکە ڕێک بخە."
+    } else {
+        "داتاکانت لەسەر سێرڤەر سەلامەتن — دوگمە بدە بۆ هەوڵدانەوە."
+    }
+
+    GlassCard(
+        padding = 14.dp,
+        radius = 22.dp,
+        modifier = Modifier.padding(bottom = 8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.brandSoft),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    AppIcons.cloudWait(),
+                    contentDescription = null,
+                    tint = colors.brandDeep,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = colors.textPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = hint,
+                    color = colors.textSecondary,
+                    fontSize = 11.sp,
+                )
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Row {
+            PillButton(
+                label = "هەوڵدانەوە",
+                onClick = onRetry,
+                height = 42.dp,
+                fontSize = 12,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(8.dp))
+            PillButton(
+                label = "ڕێکخستنی ناونیشان",
+                onClick = onFixAddress,
+                height = 42.dp,
+                fontSize = 12,
+                container = colors.brandSoft,
+                contentColor = colors.brandDeep,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,12 +164,14 @@ fun HomeScreen(viewModel: MainViewModel) {
     val baseUrl by viewModel.baseUrl.collectAsStateWithLifecycle()
     val goods by viewModel.goods.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val syncIssue by viewModel.syncIssue.collectAsStateWithLifecycle()
 
     var tab by remember { mutableStateOf(HomeTab.CUSTOMERS) }
     var showSheet by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Customer?>(null) }
     var routeTarget by remember { mutableStateOf<Customer?>(null) }
     var deleteTarget by remember { mutableStateOf<Customer?>(null) }
+    var profileTarget by remember { mutableStateOf<Customer?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var showGoodSheet by remember { mutableStateOf(false) }
     var editingGood by remember { mutableStateOf<com.yousif.delivery.data.GoodItem?>(null) }
@@ -215,6 +301,15 @@ fun HomeScreen(viewModel: MainViewModel) {
                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 132.dp),
                             verticalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
+                            if (syncIssue != null) {
+                                item {
+                                    ServerNotice(
+                                        code = syncIssue ?: 0,
+                                        onRetry = { viewModel.retrySync() },
+                                        onFixAddress = { viewModel.resetServerAddress() },
+                                    )
+                                }
+                            }
                             if (activeVisible.isEmpty()) {
                                 item {
                                     EmptyState(
@@ -238,6 +333,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                                 CustomerCard(
                                     customer = customer,
                                     distanceMeters = viewModel.distanceTo(customer),
+                                    onOpen = { profileTarget = customer },
                                     onOpenRoute = { routeTarget = customer },
                                     onEdit = {
                                         editing = customer
@@ -275,11 +371,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                     myLocation = myLocation,
                     distanceOf = { customer -> viewModel.distanceTo(customer) },
                     onOpenRoute = { customer -> routeTarget = customer },
-                    onOpenCustomer = { customer ->
-                        editing = customer
-                        prefill = null
-                        showSheet = true
-                    },
+                    onOpenCustomer = { customer -> profileTarget = customer },
                     onLocate = {
                         requestGps { _, _ -> viewModel.onLocationPermissionGranted() }
                     },
@@ -305,6 +397,32 @@ fun HomeScreen(viewModel: MainViewModel) {
                     }
                 },
             )
+
+            // «کردنەوە» shows the person; editing stays behind the pencil.
+            // The live row is used so a saved edit shows up immediately.
+            profileTarget?.let { target ->
+                val person = everyone.firstOrNull { row -> row.id == target.id } ?: target
+                CustomerProfile(
+                    customer = person,
+                    goods = goods,
+                    distanceMeters = viewModel.distanceTo(person),
+                    onBack = { profileTarget = null },
+                    onEdit = {
+                        editing = person
+                        prefill = null
+                        showSheet = true
+                    },
+                    onRoute = { routeTarget = person },
+                    onOpenMap = {
+                        profileTarget = null
+                        tab = HomeTab.MAP
+                    },
+                    onDelete = {
+                        profileTarget = null
+                        deleteTarget = person
+                    },
+                )
+            }
         }
     }
 
