@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { backends, describeError, getStore, isConfigured } from '@/lib/db';
+import { backends, describeError, getStore, isConfigured, lastProbeReport } from '@/lib/db';
 import { json, preflight } from '@/lib/http';
 import { passwordMatches } from '@/lib/password';
 import type { ParsedCustomer } from '@/lib/types';
@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
     return json({ ...base, error: 'unauthorized', message: 'وشەی نهێنی هەڵەیە' }, 401);
   }
 
+  const startedAt = Date.now();
   try {
     const store = await getStore();
     const customers = await store.list();
@@ -64,6 +65,8 @@ export async function GET(request: NextRequest) {
       backend: store.backend,
       host: store.detail,
       customers: customers.length,
+      resolveMs: Date.now() - startedAt,
+      probes: lastProbeReport(),
     };
 
     if (params.get('write') === '1') {
@@ -81,6 +84,7 @@ export async function GET(request: NextRequest) {
         dbReachable: false,
         error: 'database_error',
         detail: describeError(error),
+        probes: lastProbeReport(),
       },
       503,
     );
