@@ -87,6 +87,9 @@ mkdir -p "$(dirname "$KS")"
 if [ -n "${KEYSTORE_BASE64:-}" ]; then
   printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$KS" || die "keystore decode"
   echo "keystore restored from KEYSTORE_BASE64"
+elif [ -f "$APP/release-keystore.b64" ]; then
+  tr -d '\n' < "$APP/release-keystore.b64" | base64 -d > "$KS" || die "keystore decode (repo)"
+  echo "keystore restored from android-app/release-keystore.b64"
 else
   keytool -genkeypair -keystore "$KS" -storetype PKCS12 \
     -alias "${KEY_ALIAS:-yousif}" -keyalg RSA -keysize 2048 -validity 10000 \
