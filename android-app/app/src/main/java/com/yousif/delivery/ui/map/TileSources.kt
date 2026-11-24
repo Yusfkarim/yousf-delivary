@@ -83,6 +83,10 @@ object TileSources {
 
     fun currentStreet(): OnlineTileSourceBase = preferredStreet
 
+    /** Single tile URL — the map draws tiles itself instead of using a MapView. */
+    fun urlFor(style: MapStyle, dark: Boolean, zoom: Int, x: Int, y: Int): String =
+        forStyle(style, dark).getTileURLString(MapTileIndex.getTileIndex(zoom, x, y))
+
     fun forStyle(style: MapStyle, dark: Boolean): OnlineTileSourceBase = when (style) {
         MapStyle.DARK -> cartoDark
         MapStyle.SATELLITE -> satellite

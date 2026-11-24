@@ -147,7 +147,7 @@ fun RouteDialog(
                             .height(200.dp)
                             .clip(RoundedCornerShape(18.dp)),
                     ) {
-                        OsmMap(
+                        TileMap(
                             modifier = Modifier.fillMaxSize(),
                             center = when {
                                 customer.hasCoordinates -> MapPoint(customer.latitude, customer.longitude)
