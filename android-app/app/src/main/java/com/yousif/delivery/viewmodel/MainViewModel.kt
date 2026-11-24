@@ -69,6 +69,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _syncing = MutableStateFlow(false)
     val syncing: StateFlow<Boolean> = _syncing.asStateFlow()
 
+    /**
+     * Why the last server sync failed (`null` = it succeeded). The customers screen
+     * shows a banner from this, so an empty list never looks like lost data when the
+     * server simply has not answered yet.
+     */
+    private val _syncIssue = MutableStateFlow<Int?>(null)
+    val syncIssue: StateFlow<Int?> = _syncIssue.asStateFlow()
+
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
 
@@ -211,7 +219,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun diagnose() {
         viewModelScope.launch {
             _busy.value = true
-            _diagnostics.value = withContext(Dispatchers.IO) { Diagnostics.run(_baseUrl.value) }
+            _diagnostics.value = withContext(Dispatchers.IO) {
+                Diagnostics.run(_baseUrl.value, session.password)
+            }
             _busy.value = false
         }
     }
@@ -452,6 +462,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _syncing.value = true
         val result = repository.syncDetailed()
         _syncing.value = false
+        _syncIssue.value = if (result.ok || result.code == 200) null else result.code
+        _baseUrl.value = session.baseUrl
         if (announce) {
             emit(if (result.ok) "هەموو داتاکان لەگەڵ سێرڤەر یەکسانن ✓" else explainSync(result))
         }
@@ -470,13 +482,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── Server settings ─────────────────────────────────────────────────
 
+    /** Back to the built-in address — the one-tap repair for a `404` server error. */
+    fun resetServerAddress() {
+        session.baseUrl = api.sanitize(BuildConfig.API_BASE_URL)
+        _baseUrl.value = session.baseUrl
+        emit("ناونیشانی سێرڤەر گەڕێندرایەوە بۆ بنەڕەت")
+        viewModelScope.launch { runSync(announce = true) }
+    }
+
+    /** Retries the sync after a failure (used by the banner on the customers tab). */
+    fun retrySync() {
+        viewModelScope.launch { runSync(announce = true) }
+    }
+
     fun updateBaseUrl(url: String) {
         val trimmed = url.trim().trimEnd('/')
         if (trimmed.isEmpty()) {
             emit("نیشانی سێرڤەر بەتاڵە")
             return
         }
-        session.baseUrl = trimmed
+        session.baseUrl = api.sanitize(trimmed)
         _baseUrl.value = session.baseUrl
         emit("نیشانی سێرڤەر پاشەکەوتکرا")
     }

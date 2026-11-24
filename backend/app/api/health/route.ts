@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { backends, describeError, getStore, isConfigured, lastProbeReport } from '@/lib/db';
 import { json, preflight } from '@/lib/http';
-import { passwordMatches } from '@/lib/password';
+import { appPassword, passwordMatches } from '@/lib/password';
 import type { ParsedCustomer } from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -36,6 +36,41 @@ function probeCustomer(): ParsedCustomer {
  * counts the rows. Adding `&write=1` also upserts and deletes a probe record, so
  * the exact code path the app uses for saving is exercised.
  */
+/**
+ * End-to-end check of the routes the app actually calls.
+ *
+ * Vercel routes each API file to its own lambda, so a deployment can answer
+ * `/api/health` and still miss `/api/customers` (an old build). Calling them
+ * from inside the probe — authenticating with the same password — turns a
+ * remote mystery into a plain status code.
+ */
+async function checkRoutes(origin: string, password: string) {
+  const checks: Record<string, string> = {};
+  const calls: Array<{ path: string; method: string; body?: string }> = [
+    { path: '/api/customers', method: 'GET' },
+    { path: '/api/auth/verify', method: 'POST', body: '{}' },
+  ];
+  for (const call of calls) {
+    try {
+      const response = await fetch(origin + call.path, {
+        method: call.method,
+        headers: {
+          'x-app-password': password,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: call.body,
+        cache: 'no-store',
+      });
+      const text = await response.text();
+      checks[call.path] = `${response.status} ${text.length}b`;
+    } catch (error) {
+      checks[call.path] = `error: ${error instanceof Error ? error.message : 'unknown'}`;
+    }
+  }
+  return checks;
+}
+
 export async function GET(request: NextRequest) {
   const base = {
     ok: true,
@@ -69,6 +104,14 @@ export async function GET(request: NextRequest) {
       resolveMs: Date.now() - startedAt,
       probes: lastProbeReport(),
     };
+
+    if (params.get('routes') === '1') {
+      const origin = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : request.nextUrl.origin;
+      report.routeOrigin = origin;
+      report.routes = await checkRoutes(origin, appPassword());
+    }
 
     if (params.get('write') === '1') {
       const saved = await store.upsert(probeCustomer());

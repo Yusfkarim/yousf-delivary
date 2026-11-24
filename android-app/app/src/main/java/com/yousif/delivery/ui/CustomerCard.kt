@@ -41,6 +41,7 @@ import com.yousif.delivery.util.TextUtils
 fun CustomerCard(
     customer: Customer,
     distanceMeters: Double?,
+    onOpen: () -> Unit,
     onOpenRoute: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -52,7 +53,7 @@ fun CustomerCard(
 
     AppCard(
         modifier = Modifier.padding(bottom = 12.dp),
-        onClick = onOpenRoute,
+        onClick = onOpen,
         padding = 14.dp,
     ) {
         /* ---------- headline ---------- */

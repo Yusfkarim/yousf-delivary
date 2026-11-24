@@ -14,7 +14,7 @@ import okhttp3.Request
  */
 object Diagnostics {
 
-    fun run(baseUrl: String): List<String> {
+    fun run(baseUrl: String, password: String = ""): List<String> {
         val lines = mutableListOf<String>()
         val trimmed = baseUrl.trim().trimEnd('/')
 
@@ -78,6 +78,36 @@ object Diagnostics {
             lines += "HTTP ✗  " + (error.message ?: error.javaClass.simpleName)
         }
 
+        // The routes the app really calls — a health check alone can pass while
+        // `/api/customers` is missing on that deployment.
+        if (password.isNotBlank()) {
+            lines += customersProbe(client, trimmed, password)
+        }
+
         return lines
+    }
+
+    private fun customersProbe(client: OkHttpClient, baseUrl: String, password: String): String {
+        return try {
+            val request = Request
+                .Builder()
+                .url("$baseUrl/api/customers")
+                .header("x-app-password", password)
+                .header("Accept", "application/json")
+                .get()
+                .build()
+            client.newCall(request).execute().use { response ->
+                val text = response.body?.string().orEmpty()
+                val first = text.trim().take(120)
+                when {
+                    response.isSuccessful -> "کڕیارەکان: HTTP ${response.code} ✓ (${text.length} پیت)"
+                    response.code == 401 -> "کڕیارەکان: 401 — وشەی نهێنی ڕەتکرایەوە"
+                    response.code == 404 -> "کڕیارەکان: 404 — ئەم ناونیشانە ڕێچکەی /api/customers نییە"
+                    else -> "کڕیارەکان: HTTP ${response.code}  $first"
+                }
+            }
+        } catch (error: Exception) {
+            "کڕیارەکان: ✗ " + (error.message ?: error.javaClass.simpleName)
+        }
     }
 }
