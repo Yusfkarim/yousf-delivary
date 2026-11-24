@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.yousif.delivery.ui.icons.AppIcons
+import com.yousif.delivery.ui.map.MapStyle
 import com.yousif.delivery.ui.theme.LocalAppColors
 import com.yousif.delivery.util.TextUtils
 
@@ -46,6 +47,7 @@ fun LocationPickerDialog(
     onConfirm: (Double, Double) -> Unit,
 ) {
     val colors = LocalAppColors.current
+    var showLink by remember { mutableStateOf(false) }
     var picked by remember {
         mutableStateOf(
             initial ?: me,
@@ -97,6 +99,7 @@ fun LocationPickerDialog(
                     me = me,
                     customer = picked?.let { MapPoint(it.latitude, it.longitude, "شوێنی هەڵبژێردراو") },
                     allowStyleSwitch = true,
+                    initialStyle = MapStyle.SATELLITE,
                     onTap = { lat, lng -> picked = MapPoint(lat, lng) },
                     onLocate = me?.let {
                         { picked = MapPoint(it.latitude, it.longitude) }
@@ -121,7 +124,7 @@ fun LocationPickerDialog(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = picked?.let { TextUtils.coordinates(it.latitude, it.longitude) } ?: "—",
+                        text = picked?.let { TextUtils.coordinatesDisplay(it.latitude, it.longitude) } ?: "—",
                         color = colors.textPrimary,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -137,7 +140,17 @@ fun LocationPickerDialog(
                             container = colors.brandSoft,
                             contentColor = colors.brandDeep,
                             modifier = Modifier.weight(1f),
-                            height = 46.dp,
+                            height = 48.dp,
+                            fontSize = 13,
+                        )
+                        PillButton(
+                            label = "لینکی نەخشە",
+                            onClick = { showLink = true },
+                            icon = AppIcons.pin(),
+                            container = colors.brandSoft,
+                            contentColor = colors.brandDeep,
+                            modifier = Modifier.weight(1f),
+                            height = 48.dp,
                             fontSize = 13,
                         )
                     }
@@ -165,6 +178,16 @@ fun LocationPickerDialog(
                     }
                 }
             }
+        }
+
+        if (showLink) {
+            MapLinkDialog(
+                onDismiss = { showLink = false },
+                onPick = { lat, lng ->
+                    picked = MapPoint(lat, lng)
+                    showLink = false
+                },
+            )
         }
     }
 }

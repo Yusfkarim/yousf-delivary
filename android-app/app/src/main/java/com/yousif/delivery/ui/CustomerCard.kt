@@ -146,7 +146,7 @@ fun CustomerCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = TextUtils.coordinates(customer.latitude, customer.longitude),
+                        text = TextUtils.coordinatesDisplay(customer.latitude, customer.longitude),
                         color = colors.textMuted,
                         fontSize = 10.sp,
                     )

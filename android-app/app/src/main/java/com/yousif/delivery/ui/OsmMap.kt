@@ -75,14 +75,15 @@ fun OsmMap(
     showControls: Boolean = true,
     interactive: Boolean = true,
     allowStyleSwitch: Boolean = false,
+    initialStyle: MapStyle = MapStyle.STREET,
     onLocate: (() -> Unit)? = null,
     onTap: ((Double, Double) -> Unit)? = null,
 ) {
     val colors = LocalAppColors.current
     val context = LocalContext.current
 
-    var style by remember { mutableStateOf(MapStyle.STREET) }
-    var source by remember { mutableStateOf<OnlineTileSourceBase>(TileSources.forStyle(MapStyle.STREET, colors.isDark)) }
+    var style by remember { mutableStateOf(initialStyle) }
+    var source by remember { mutableStateOf<OnlineTileSourceBase>(TileSources.forStyle(initialStyle, colors.isDark)) }
     var tileState by remember { mutableStateOf(TileState.LOADING) }
     var mapView by remember { mutableStateOf<MapView?>(null) }
     val state = remember { MapState() }
@@ -125,7 +126,9 @@ fun OsmMap(
                 view.overlayManager.tilesOverlay.setLoadingBackgroundColor(background)
                 view.overlayManager.tilesOverlay.setLoadingLineColor(background)
 
-                val target = center ?: me ?: customer
+                // Explicit centre wins; otherwise frame every pin; a lone GPS fix
+                // is only used when the map has nothing else to show.
+                val target = center ?: if (points.isEmpty()) (me ?: customer) else null
                 if (target != null) {
                     val key = "${target.latitude}/${target.longitude}/$zoom"
                     if (state.centerKey != key) {
@@ -173,8 +176,15 @@ fun OsmMap(
                     view.invalidate()
                 }
 
+                if (center == null && points.size == 1 && state.centerKey == null) {
+                    val only = points.first()
+                    state.centerKey = "single/${only.latitude}/${only.longitude}/$zoom"
+                    view.controller.setZoom(zoom)
+                    view.controller.setCenter(GeoPoint(only.latitude, only.longitude))
+                }
+
                 // Frame every stop once, so the whole round is visible.
-                if (target == null && !state.fitted && points.size > 1) {
+                if (center == null && target == null && !state.fitted && points.size > 1) {
                     state.fitted = true
                     val latitudes = points.map { it.latitude }
                     val longitudes = points.map { it.longitude }
@@ -214,15 +224,15 @@ fun OsmMap(
                     MapButton(
                         icon = when (style) {
                             MapStyle.DARK -> AppIcons.moon()
-                            MapStyle.LIGHT -> AppIcons.sun()
+                            MapStyle.SATELLITE -> AppIcons.sun()
                             MapStyle.STREET -> AppIcons.map()
                         },
                         dark = colors.isDark,
                         tint = colors.brandDeep,
                     ) {
                         style = when (style) {
-                            MapStyle.STREET -> MapStyle.LIGHT
-                            MapStyle.LIGHT -> MapStyle.DARK
+                            MapStyle.STREET -> MapStyle.SATELLITE
+                            MapStyle.SATELLITE -> MapStyle.DARK
                             MapStyle.DARK -> MapStyle.STREET
                         }
                         source = TileSources.forStyle(style, colors.isDark)
@@ -307,7 +317,9 @@ private fun marker(view: MapView, point: MapPoint, title: String, iconRes: Int):
     Marker(view).apply {
         position = GeoPoint(point.latitude, point.longitude)
         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-        icon = ContextCompat.getDrawable(view.context, iconRes)
+        val drawable = ContextCompat.getDrawable(view.context, iconRes)
+        drawable?.setBounds(0, 0, drawable.intrinsicWidth, drawable.intrinsicHeight)
+        icon = drawable
         this.title = title
         setInfoWindow(null)
     }

@@ -1,6 +1,5 @@
 package com.yousif.delivery.ui
 
-import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -51,12 +50,12 @@ import com.yousif.delivery.data.ExtraPhone
 import com.yousif.delivery.data.Kinds
 import com.yousif.delivery.ui.icons.AppIcons
 import com.yousif.delivery.ui.theme.LocalAppColors
+import com.yousif.delivery.util.ClipboardUtils
 import com.yousif.delivery.util.IntentUtils
 import com.yousif.delivery.util.MapLinkParser
 import com.yousif.delivery.util.MapLinkResolver
 import com.yousif.delivery.util.TextUtils
 import com.yousif.delivery.viewmodel.LocationFix
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** Mutable row state for the "extra numbers" editor. */
@@ -99,11 +98,10 @@ fun CustomerSheet(
     var longitude by remember {
         mutableStateOf(initial?.longitude?.takeIf { it != 0.0 } ?: prefill?.longitude)
     }
-    var pasteField by remember { mutableStateOf("") }
+    var clipLink by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
-    var linkStatus by remember { mutableStateOf<String?>(null) }
-    var resolving by remember { mutableStateOf(false) }
     var showPicker by remember { mutableStateOf(false) }
+    var showLink by remember { mutableStateOf(false) }
 
     val extras = remember {
         mutableStateListOf<ExtraPhoneEditor>().apply {
@@ -127,65 +125,12 @@ fun CustomerSheet(
         error = null
     }
 
-    fun applyLink(raw: String) {
-        val text = raw.trim()
-        if (text.isEmpty()) {
-            error = "لینک یان کۆردینات بنووسە"
-            return
-        }
-        scope.launch {
-            resolving = true
-            error = null
-            linkStatus = "لینک دەخوێندرێتەوە…"
-            val parsed = MapLinkParser.parse(text) ?: MapLinkResolver.resolve(text)
-            resolving = false
-            if (parsed != null) {
-                applyCoordinates(parsed.first, parsed.second)
-                pasteField = TextUtils.coordinates(parsed.first, parsed.second)
-                linkStatus = "شوێن دۆزرایەوە ✓"
-            } else {
-                linkStatus = null
-                error = "شوێن لەم لینکە نەدۆزرایەوە — لینکەکە بە تەواوی کۆپی بکەوە، یان لە نەخشە دیاری بکە"
-            }
-        }
-    }
-
-    fun parsePaste() {
-        val clipboard = readClipboardText(context)
-        val candidate = pasteField.ifBlank { clipboard.orEmpty() }
-        if (candidate.isBlank()) {
-            val parsed = readClipboardCoordinates(context)
-            if (parsed != null) {
-                applyCoordinates(parsed.first, parsed.second)
-                pasteField = TextUtils.coordinates(parsed.first, parsed.second)
-                linkStatus = "شوێن دۆزرایەوە ✓"
-                error = null
-            } else {
-                error = "هیچ لینکێک یان کۆردیناتێک نەدۆزرایەوە"
-            }
-        } else {
-            pasteField = candidate
-            applyLink(candidate)
-        }
-    }
-
-    // Opening a blank "new customer" sheet while a maps link sits in the
-    // clipboard fills the location straight away — no taps at all.
+    // If a maps link is already on the clipboard it pre-fills the link dialog.
+    // It is never applied on its own: a link is a saved pin, not a GPS fix.
     LaunchedEffect(Unit) {
         if (initial != null || latitude != null) return@LaunchedEffect
-        val clip = readClipboardText(context)
-        if (clip != null && MapLinkResolver.hasLink(clip) && pasteField.isBlank()) {
-            pasteField = clip
-        }
-    }
-
-    // A pasted Google Maps link (short links included) resolves itself, so the
-    // driver never has to press anything after "Paste".
-    LaunchedEffect(pasteField) {
-        delay(450)
-        val text = pasteField.trim()
-        if (text.isEmpty() || !MapLinkResolver.hasLink(text)) return@LaunchedEffect
-        if (MapLinkParser.parse(text) == null) applyLink(text)
+        val clip = ClipboardUtils.text(context)
+        if (clip != null) clipLink = MapLinkResolver.firstLink(clip).orEmpty()
     }
 
     ModalBottomSheet(
@@ -300,7 +245,7 @@ fun CustomerSheet(
                         )
                         Text(
                             text = if (latitude != null && longitude != null) {
-                                TextUtils.coordinates(latitude ?: 0.0, longitude ?: 0.0)
+                                TextUtils.coordinatesDisplay(latitude ?: 0.0, longitude ?: 0.0)
                             } else {
                                 "لە نەخشە یان بە GPS دیاری بکە"
                             },
@@ -322,6 +267,37 @@ fun CustomerSheet(
                     )
                 }
                 Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PillButton(
+                        label = "شوێنی ئێستام",
+                        onClick = { onRequestGps { lat, lng -> applyCoordinates(lat, lng) } },
+                        icon = AppIcons.locate(),
+                        container = colors.brandSoft,
+                        contentColor = colors.brandDeep,
+                        modifier = Modifier.weight(1f),
+                        height = 48.dp,
+                        fontSize = 13,
+                    )
+                    PillButton(
+                        label = "لینکی نەخشە",
+                        onClick = { showLink = true },
+                        icon = AppIcons.pin(),
+                        container = colors.brandSoft,
+                        contentColor = colors.brandDeep,
+                        modifier = Modifier.weight(1f),
+                        height = 48.dp,
+                        fontSize = 13,
+                    )
+                }
+                Spacer(Modifier.height(7.dp))
+                Text(
+                    text = "«شوێنی ئێستام» = GPS ی مۆبایلەکەت · «لینکی نەخشە» = شوێنێک لە Google Maps",
+                    color = colors.textMuted,
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp,
+                    modifier = Modifier.padding(horizontal = 2.dp),
+                )
+                Spacer(Modifier.height(10.dp))
                 PillButton(
                     label = "دیاریکردن لەسەر نەخشە",
                     onClick = { showPicker = true },
@@ -330,6 +306,17 @@ fun CustomerSheet(
                     contentColor = colors.onBrand,
                     modifier = Modifier.fillMaxWidth(),
                     height = 48.dp,
+                )
+            }
+
+            if (showLink) {
+                MapLinkDialog(
+                    initialText = clipLink,
+                    onDismiss = { showLink = false },
+                    onPick = { lat, lng ->
+                        applyCoordinates(lat, lng)
+                        showLink = false
+                    },
                 )
             }
 
@@ -351,67 +338,28 @@ fun CustomerSheet(
             }
 
             AppCard(padding = 14.dp) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PillButton(
-                        label = "شوێنی ئێستام",
-                        onClick = { onRequestGps { lat, lng -> applyCoordinates(lat, lng) } },
-                        icon = AppIcons.locate(),
-                        container = colors.brandSoft,
-                        contentColor = colors.brandDeep,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (latitude != null && longitude != null) {
-                        PillButton(
-                            label = "کۆپی",
-                            onClick = {
-                                IntentUtils.copyToClipboard(
-                                    context,
-                                    "coordinates",
-                                    TextUtils.coordinates(latitude ?: 0.0, longitude ?: 0.0),
-                                )
-                                IntentUtils.toast(context, "کۆردینات کۆپی کرا")
-                            },
-                            icon = AppIcons.copy(),
-                            container = colors.surfaceAlt,
-                            contentColor = colors.textSecondary,
-                            modifier = Modifier.width(110.dp),
-                        )
-                    }
-                }
                 if (latitude != null && longitude != null) {
-                    Text(
-                        text = TextUtils.coordinates(latitude ?: 0.0, longitude ?: 0.0),
-                        color = colors.textMuted,
-                        fontSize = 10.5.sp,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-                SheetField(
-                    value = pasteField,
-                    onValueChange = { pasteField = it },
-                    placeholder = "لینکی گووگڵ ماپ یان کۆردینات",
-                    icon = if (isShop) AppIcons.store() else AppIcons.map(),
-                    trailing = {
-                        TextButton(onClick = { parsePaste() }) {
-                            Text(
-                                text = if (resolving) "…" else "جێبەجێکردن",
-                                fontSize = 11.5.sp,
-                                color = colors.brandDeep,
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PillButton(
+                        label = "کۆپی کۆردینات",
+                        onClick = {
+                            IntentUtils.copyToClipboard(
+                                context,
+                                "coordinates",
+                                TextUtils.coordinates(latitude ?: 0.0, longitude ?: 0.0),
                             )
-                        }
-                    },
-                )
-                linkStatus?.let { status ->
-                    Text(
-                        text = status,
-                        color = if (status.contains("✓")) colors.successDeep else colors.textMuted,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(top = 6.dp, start = 4.dp),
+                            IntentUtils.toast(context, "کۆردینات کۆپی کرا")
+                        },
+                        icon = AppIcons.copy(),
+                        container = colors.surfaceAlt,
+                        contentColor = colors.textSecondary,
+                        modifier = Modifier.weight(1f),
+                        height = 46.dp,
+                        fontSize = 13,
                     )
+                    }
+                    Spacer(Modifier.height(10.dp))
                 }
-                Spacer(Modifier.height(10.dp))
                 SheetField(
                     value = addressNote,
                     onValueChange = { addressNote = it },
@@ -583,22 +531,3 @@ private fun ExtraPhoneRow(editor: ExtraPhoneEditor, onRemove: () -> Unit) {
     }
 }
 
-private fun readClipboardText(context: Context): String? {
-    return try {
-        val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-        val text = manager?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)
-        text?.toString()?.takeIf { it.isNotBlank() }
-    } catch (error: Exception) {
-        null
-    }
-}
-
-private fun readClipboardCoordinates(context: Context): Pair<Double, Double>? {
-    return try {
-        val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-        val text = manager?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)
-        if (text.isNullOrBlank()) null else MapLinkParser.parse(text.toString())
-    } catch (error: Exception) {
-        null
-    }
-}
