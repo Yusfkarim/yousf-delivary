@@ -3,7 +3,9 @@ package com.yousif.delivery
 import android.content.Context
 import androidx.room.Room
 import com.yousif.delivery.data.AppDatabase
+import com.yousif.delivery.data.GoodDao
 import com.yousif.delivery.data.MIGRATION_1_2
+import com.yousif.delivery.data.MIGRATION_2_3
 import com.yousif.delivery.data.CustomerRepository
 import com.yousif.delivery.data.remote.ApiClient
 import com.yousif.delivery.session.SessionStore
@@ -17,6 +19,9 @@ object AppGraph {
     @Volatile
     private var customerRepository: CustomerRepository? = null
 
+    @Volatile
+    private var database: AppDatabase? = null
+
     fun session(context: Context): SessionStore {
         return sessionStore ?: synchronized(this) {
             sessionStore ?: SessionStore(context.applicationContext).also { sessionStore = it }
@@ -29,14 +34,26 @@ object AppGraph {
         }
     }
 
+    fun database(context: Context): AppDatabase {
+        return database ?: synchronized(this) {
+            database ?: Room.databaseBuilder(
+                context.applicationContext,
+                AppDatabase::class.java,
+                "yousif-delivery.db",
+            )
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .fallbackToDestructiveMigration()
+                .build()
+                .also { database = it }
+        }
+    }
+
+    fun goods(context: Context): GoodDao = database(context).goodDao()
+
     private fun build(context: Context): CustomerRepository {
-        val database = Room.databaseBuilder(context, AppDatabase::class.java, "yousif-delivery.db")
-            .addMigrations(MIGRATION_1_2)
-            .fallbackToDestructiveMigration()
-            .build()
         return CustomerRepository(
             context = context,
-            dao = database.customerDao(),
+            dao = database(context).customerDao(),
             session = session(context),
             api = ApiClient(),
         )

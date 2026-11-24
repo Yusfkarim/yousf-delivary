@@ -38,6 +38,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,6 +59,9 @@ fun LockScreen(viewModel: MainViewModel) {
 
     var password by remember { mutableStateOf("") }
     var showServerDialog by remember { mutableStateOf(false) }
+    // The server address is not something a passer-by should ever read: it is
+    // only reachable by long-pressing the logo.
+    var advanced by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -78,7 +83,10 @@ fun LockScreen(viewModel: MainViewModel) {
             Box(
                 modifier = Modifier
                     .size(96.dp)
-                    .background(colors.surface, CircleShape),
+                    .background(colors.surface, CircleShape)
+                    .pointerInput(Unit) {
+                        detectTapGestures(onLongPress = { advanced = true })
+                    },
                 contentAlignment = Alignment.Center,
             ) {
                 BrandBadge(size = 66.dp, icon = AppIcons.packageBox())
@@ -175,15 +183,17 @@ fun LockScreen(viewModel: MainViewModel) {
             Spacer(Modifier.height(14.dp))
 
             Row(horizontalArrangement = Arrangement.Center) {
-                TextButton(onClick = { showServerDialog = true }) {
-                    Text("ڕێکخستنی سێرڤەر", color = colors.textSecondary, fontSize = 12.sp)
-                }
-                TextButton(onClick = { viewModel.diagnose() }, enabled = !busy) {
-                    Text("پشکنینی سێرڤەر", color = colors.brandDeep, fontSize = 12.sp)
+                if (advanced) {
+                    TextButton(onClick = { showServerDialog = true }) {
+                        Text("ڕێکخستنی سێرڤەر", color = colors.textSecondary, fontSize = 12.sp)
+                    }
+                    TextButton(onClick = { viewModel.diagnose() }, enabled = !busy) {
+                        Text("پشکنینی سێرڤەر", color = colors.brandDeep, fontSize = 12.sp)
+                    }
                 }
             }
             Text(
-                text = baseUrl,
+                text = com.yousif.delivery.util.ServerPrivacy.status(baseUrl),
                 color = colors.textMuted,
                 fontSize = 10.sp,
             )

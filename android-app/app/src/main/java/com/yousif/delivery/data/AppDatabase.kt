@@ -15,7 +15,28 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
     }
 }
 
-@Database(entities = [CustomerEntity::class], version = 2, exportSchema = false)
+/** v3 adds «کاڵای کڕیار» — a local-only list of goods, never sent anywhere. */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS goods (
+                id TEXT NOT NULL PRIMARY KEY,
+                title TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                note TEXT NOT NULL,
+                customerId TEXT,
+                customerName TEXT,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL
+            )
+            """.trimIndent(),
+        )
+    }
+}
+
+@Database(entities = [CustomerEntity::class, GoodEntity::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun customerDao(): CustomerDao
+    abstract fun goodDao(): GoodDao
 }

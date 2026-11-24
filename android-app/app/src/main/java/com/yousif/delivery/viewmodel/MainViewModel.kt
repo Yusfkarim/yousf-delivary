@@ -10,6 +10,10 @@ import com.yousif.delivery.AppGraph
 import com.yousif.delivery.BuildConfig
 import com.yousif.delivery.data.Customer
 import com.yousif.delivery.data.CustomerDraft
+import com.yousif.delivery.data.GoodEntity
+import com.yousif.delivery.data.GoodItem
+import com.yousif.delivery.data.toDomain
+import com.yousif.delivery.data.toEntity
 import com.yousif.delivery.data.PushOutcome
 import com.yousif.delivery.data.SyncResult
 import com.yousif.delivery.data.SyncStatus
@@ -43,6 +47,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = AppGraph.repository(application)
     private val api = ApiClient()
     private val locationProvider = LocationProvider(application)
+    private val goodDao = AppGraph.goods(application)
     private var stopLocation: (() -> Unit)? = null
 
     private val _loggedIn = MutableStateFlow(session.loggedIn)
@@ -89,6 +94,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** Shops use exactly the same fields as customers, only a different badge. */
     val shops: StateFlow<List<Customer>> = allRecords
         .map { list -> list.filter { customer -> customer.isShop } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** «کاڵای کڕیار» — local only, newest first. */
+    val goods: StateFlow<List<GoodItem>> = goodDao.observeAll()
+        .map { rows -> rows.map(GoodEntity::toDomain) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val pendingCount: StateFlow<Int> = allRecords
@@ -287,11 +297,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteCustomer(customer: Customer) {
         viewModelScope.launch {
+            goodDao.detachCustomer(customer.id)
             when (repository.delete(customer)) {
                 PushOutcome.SYNCED -> emit("سڕایەوە")
                 PushOutcome.PENDING -> emit("لە سێرڤەر دەسڕدرێت کاتێک ئینتەرنێت بگەڕێتەوە")
                 PushOutcome.UNAUTHORIZED -> emit("وشەی نهێنی ڕەتکرایەوە")
             }
+        }
+    }
+
+    // ── Goods (local only) ───────────────────────────────────────────────
+
+    fun saveGood(item: GoodItem, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            if (item.title.isBlank()) return@launch
+            val now = System.currentTimeMillis()
+            val entity = item.copy(
+                title = item.title.trim(),
+                quantity = item.quantity.coerceAtLeast(1),
+                updatedAt = now,
+                createdAt = if (item.createdAt > 0) item.createdAt else now,
+            ).toEntity()
+            goodDao.upsert(entity)
+            onDone()
+        }
+    }
+
+    fun deleteGood(item: GoodItem) {
+        viewModelScope.launch { goodDao.delete(item.id) }
+    }
+
+    fun bumpGood(item: GoodItem, delta: Int) {
+        viewModelScope.launch {
+            val next = (item.quantity + delta).coerceIn(0, 9999)
+            goodDao.setQuantity(item.id, next, System.currentTimeMillis())
         }
     }
 
