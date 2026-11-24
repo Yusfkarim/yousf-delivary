@@ -59,7 +59,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.floor
-import kotlin.math.log
+import kotlin.math.ln
 import kotlin.math.roundToInt
 
 /** A place to draw on the map. */
@@ -470,7 +470,7 @@ private fun lngToTileX(longitude: Double, zoom: Int): Double =
 
 private fun latToTileY(latitude: Double, zoom: Int): Double {
     val rad = Math.toRadians(clampLatitude(latitude))
-    return (1.0 - log(Math.tan(rad) + 1.0 / cos(rad)) / Math.PI) / 2.0 * (1 shl zoom)
+    return (1.0 - ln(Math.tan(rad) + 1.0 / cos(rad)) / Math.PI) / 2.0 * (1 shl zoom)
 }
 
 private fun tileXToLng(x: Double, zoom: Int): Double = x / (1 shl zoom) * 360.0 - 180.0
