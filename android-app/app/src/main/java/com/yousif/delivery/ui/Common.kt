@@ -149,8 +149,8 @@ fun PillButton(
     icon: ImageVector? = null,
     container: Color = LocalAppColors.current.brand,
     contentColor: Color = LocalAppColors.current.onBrand,
-    height: Dp = 46.dp,
-    fontSize: Int = 13,
+    height: Dp = 48.dp,
+    fontSize: Int = 14,
 ) {
     val shape = RoundedCornerShape(50)
     Row(
@@ -264,7 +264,7 @@ fun MessengerBadge(label: String, color: Color, icon: ImageVector? = null) {
             Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(11.dp))
             Spacer(Modifier.width(4.dp))
         }
-        Text(label, color = color, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = color, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -285,7 +285,7 @@ fun IconLabelButton(
     ) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(15.dp))
         Spacer(Modifier.width(5.dp))
-        Text(label, color = tint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Text(label, color = tint, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 

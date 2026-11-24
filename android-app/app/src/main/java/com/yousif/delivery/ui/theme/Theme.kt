@@ -10,6 +10,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 
 /**
@@ -136,7 +138,14 @@ fun YousifTheme(
         )
     }
 
-    CompositionLocalProvider(LocalAppColors provides palette) {
+    val density = LocalDensity.current
+    // A gentle global bump: the driver reads the screen at arm's length in a car.
+    val readable = Density(density = density.density, fontScale = density.fontScale * 1.06f)
+
+    CompositionLocalProvider(
+        LocalAppColors provides palette,
+        LocalDensity provides readable,
+    ) {
         MaterialTheme(
             colorScheme = scheme,
             shapes = AppShapes,

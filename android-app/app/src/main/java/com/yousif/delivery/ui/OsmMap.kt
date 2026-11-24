@@ -25,6 +25,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import com.yousif.delivery.R
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -178,13 +180,17 @@ fun OsmMap(
                         )
                     }
                     if (customer != null) {
-                        view.overlays.add(marker(view, customer, customer.title.ifBlank { "شوێنی کڕیار" }))
+                        view.overlays.add(
+                            marker(view, customer, customer.title.ifBlank { "شوێنی هەڵبژێردراو" }, R.drawable.ic_map_pin),
+                        )
                     }
                     points.forEach { point ->
-                        view.overlays.add(marker(view, point, point.title))
+                        view.overlays.add(marker(view, point, point.title, R.drawable.ic_map_pin))
                     }
                     if (me != null) {
-                        view.overlays.add(marker(view, me, me.title.ifBlank { "شوێنی من" }))
+                        view.overlays.add(
+                            marker(view, me, me.title.ifBlank { "شوێنی من" }, R.drawable.ic_map_me),
+                        )
                     }
                     view.invalidate()
                 }
@@ -253,8 +259,8 @@ private fun MapButton(
     val shape = RoundedCornerShape(14.dp)
     Box(
         modifier = Modifier
-            .size(40.dp)
-            .shadow(4.dp, shape, clip = false)
+            .size(46.dp)
+            .shadow(5.dp, shape, clip = false)
             .clip(shape)
             .background(if (dark) Color(0xFFE6201A15) else Color(0xFFFFFFFF))
             .border(1.dp, if (dark) Color(0xFF3A2D24) else Color(0xFFF2E2D6), shape)
@@ -265,15 +271,16 @@ private fun MapButton(
             icon,
             contentDescription = null,
             tint = tint ?: if (dark) Color(0xFFF0E7DF) else Color(0xFF2A1A11),
-            modifier = Modifier.size(19.dp),
+            modifier = Modifier.size(22.dp),
         )
     }
 }
 
-private fun marker(view: MapView, point: MapPoint, title: String): Marker =
+private fun marker(view: MapView, point: MapPoint, title: String, iconRes: Int): Marker =
     Marker(view).apply {
         position = GeoPoint(point.latitude, point.longitude)
         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+        icon = ContextCompat.getDrawable(view.context, iconRes)
         this.title = title
         setInfoWindow(null)
     }

@@ -8,6 +8,7 @@ data class ExtraPhoneDto(
 
 data class CustomerDto(
     val id: String? = null,
+    val kind: String? = null,
     val name: String? = null,
     val primaryPhone: String? = null,
     val hasWhatsapp: Boolean = false,

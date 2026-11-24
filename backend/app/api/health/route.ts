@@ -14,6 +14,7 @@ function probeCustomer(): ParsedCustomer {
   const now = Date.now();
   return {
     id: PROBE_ID,
+    kind: 'customer',
     name: 'selftest probe',
     primaryPhone: '0000',
     hasWhatsapp: false,

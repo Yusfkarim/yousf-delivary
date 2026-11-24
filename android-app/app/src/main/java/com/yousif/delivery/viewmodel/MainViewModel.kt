@@ -18,6 +18,7 @@ import com.yousif.delivery.location.LocationProvider
 import com.yousif.delivery.util.Diagnostics
 import com.yousif.delivery.util.GeoUtils
 import com.yousif.delivery.util.PhoneUtils
+import com.yousif.delivery.util.TextUtils as TextUtilsNumber
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -77,47 +78,72 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _diagnostics = MutableStateFlow<List<String>?>(null)
     val diagnostics: StateFlow<List<String>?> = _diagnostics.asStateFlow()
 
-    val customers: StateFlow<List<Customer>> = repository.customers
+    private val allRecords: StateFlow<List<Customer>> = repository.customers
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val pendingCount: StateFlow<Int> = customers
+    /** People only — the shops live in their own list below. */
+    val customers: StateFlow<List<Customer>> = allRecords
+        .map { list -> list.filter { customer -> !customer.isShop } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Shops use exactly the same fields as customers, only a different badge. */
+    val shops: StateFlow<List<Customer>> = allRecords
+        .map { list -> list.filter { customer -> customer.isShop } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val pendingCount: StateFlow<Int> = allRecords
         .map { list -> list.count { it.syncStatus != SyncStatus.SYNCED } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     val visibleCustomers: StateFlow<List<Customer>> =
-        combine(customers, _query, _nearestFirst, _myLocation) { list, query, nearest, fix ->
-            val needle = query.trim()
-            val digits = PhoneUtils.digits(needle)
-            val filtered = if (needle.isEmpty()) {
-                list
-            } else {
-                list.filter { customer ->
-                    customer.name.contains(needle, ignoreCase = true) ||
-                        customer.addressNote.contains(needle, ignoreCase = true) ||
-                        customer.allPhones.any { phone ->
-                            phone.contains(needle) ||
-                                (digits.isNotEmpty() && PhoneUtils.normalize(phone).contains(digits))
-                        }
-                }
-            }
-
-            if (nearest && fix != null) {
-                filtered.sortedBy { customer ->
-                    if (customer.hasCoordinates) {
-                        GeoUtils.distanceMeters(
-                            fix.latitude,
-                            fix.longitude,
-                            customer.latitude,
-                            customer.longitude,
-                        )
-                    } else {
-                        Double.MAX_VALUE
-                    }
-                }
-            } else {
-                filtered.sortedByDescending { it.updatedAt }
-            }
+        combine(allRecords, _query, _nearestFirst, _myLocation) { list, query, nearest, fix ->
+            arrange(list.filter { customer -> !customer.isShop }, query, nearest, fix)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val visibleShops: StateFlow<List<Customer>> =
+        combine(allRecords, _query, _nearestFirst, _myLocation) { list, query, nearest, fix ->
+            arrange(list.filter { customer -> customer.isShop }, query, nearest, fix)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Search + "nearest first" ordering, shared by both lists. */
+    private fun arrange(
+        list: List<Customer>,
+        query: String,
+        nearest: Boolean,
+        fix: LocationFix?,
+    ): List<Customer> {
+        val needle = query.trim()
+        val digits = PhoneUtils.digits(needle)
+        val filtered = if (needle.isEmpty()) {
+            list
+        } else {
+            list.filter { customer ->
+                customer.name.contains(needle, ignoreCase = true) ||
+                    customer.addressNote.contains(needle, ignoreCase = true) ||
+                    customer.allPhones.any { phone ->
+                        phone.contains(needle) ||
+                            (digits.isNotEmpty() && PhoneUtils.normalize(phone).contains(digits))
+                    }
+            }
+        }
+
+        return if (nearest && fix != null) {
+            filtered.sortedBy { customer ->
+                if (customer.hasCoordinates) {
+                    GeoUtils.distanceMeters(
+                        fix.latitude,
+                        fix.longitude,
+                        customer.latitude,
+                        customer.longitude,
+                    )
+                } else {
+                    Double.MAX_VALUE
+                }
+            }
+        } else {
+            filtered.sortedByDescending { it.updatedAt }
+        }
+    }
 
     fun setThemeMode(mode: Int) {
         _themeMode.value = mode
@@ -234,9 +260,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun saveCustomer(draft: CustomerDraft, onDone: () -> Unit = {}) {
         viewModelScope.launch {
             val now = System.currentTimeMillis()
-            val existing = draft.id?.let { id -> customers.value.firstOrNull { it.id == id } }
+            val existing = draft.id?.let { id -> allRecords.value.firstOrNull { it.id == id } }
             val customer = Customer(
                 id = draft.id ?: UUID.randomUUID().toString(),
+                kind = com.yousif.delivery.data.Kinds.normalize(draft.kind),
                 name = draft.name.trim(),
                 primaryPhone = draft.primaryPhone.trim(),
                 hasWhatsapp = draft.hasWhatsapp,
@@ -265,6 +292,43 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 PushOutcome.PENDING -> emit("لە سێرڤەر دەسڕدرێت کاتێک ئینتەرنێت بگەڕێتەوە")
                 PushOutcome.UNAUTHORIZED -> emit("وشەی نهێنی ڕەتکرایەوە")
             }
+        }
+    }
+
+    // ── Backup (export / import) ─────────────────────────────────────────
+
+    /** Serialises every customer and shop to a pretty-printed JSON string. */
+    suspend fun backupJson(): String = withContext(Dispatchers.IO) {
+        com.yousif.delivery.util.BackupCodec.encode(repository.allOnce())
+    }
+
+    fun backupFileName(): String = com.yousif.delivery.util.BackupCodec.fileName()
+
+    /** Restores a backup file, then pushes everything to the server. */
+    fun importBackup(json: String, onDone: (Int) -> Unit = {}) {
+        viewModelScope.launch {
+            val records = withContext(Dispatchers.IO) {
+                com.yousif.delivery.util.BackupCodec.decodeToCustomers(json)
+            }
+            if (records.isEmpty()) {
+                emit("فایلەکە نەخوێندرایەوە یان هیچ تۆمارێکی تێدا نییە")
+                onDone(0)
+                return@launch
+            }
+            val written = repository.importRecords(records)
+            emit("${TextUtilsNumber.toKurdish(written.toString())} تۆمار هاوردە کرا ✓")
+            onDone(written)
+            runSync(announce = false)
+        }
+    }
+
+    // ── Shared / pasted Google Maps links ────────────────────────────────
+
+    /** Resolves a share-link into coordinates off the main thread. */
+    fun resolveMapLink(text: String, onResolved: (Pair<Double, Double>?) -> Unit) {
+        viewModelScope.launch {
+            val result = com.yousif.delivery.util.MapLinkResolver.resolve(text)
+            onResolved(result)
         }
     }
 

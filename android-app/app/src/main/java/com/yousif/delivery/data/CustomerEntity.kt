@@ -8,6 +8,7 @@ import com.google.gson.reflect.TypeToken
 @Entity(tableName = "customers")
 data class CustomerEntity(
     @PrimaryKey val id: String,
+    val kind: String = Kinds.CUSTOMER,
     val name: String,
     val primaryPhone: String,
     val hasWhatsapp: Boolean,
@@ -38,6 +39,7 @@ fun decodeExtraPhones(json: String): List<ExtraPhone> {
 
 fun CustomerEntity.toDomain(): Customer = Customer(
     id = id,
+    kind = Kinds.normalize(kind),
     name = name,
     primaryPhone = primaryPhone,
     hasWhatsapp = hasWhatsapp,
@@ -53,6 +55,7 @@ fun CustomerEntity.toDomain(): Customer = Customer(
 
 fun Customer.toEntity(): CustomerEntity = CustomerEntity(
     id = id,
+    kind = Kinds.normalize(kind),
     name = name,
     primaryPhone = primaryPhone,
     hasWhatsapp = hasWhatsapp,

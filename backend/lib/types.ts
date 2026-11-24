@@ -5,9 +5,18 @@ export interface ExtraPhone {
   has_viber: boolean;
 }
 
+/** `customer` = a person, `shop` = a business — same table, same fields. */
+export const KINDS = ['customer', 'shop'] as const;
+export type RecordKind = (typeof KINDS)[number];
+
+export function parseKind(value: unknown): RecordKind {
+  return value === 'shop' ? 'shop' : 'customer';
+}
+
 /** Row shape exactly as it lives in the `customers` table. */
 export interface CustomerRow {
   id: string;
+  kind?: string | null;
   name: string;
   primary_phone: string;
   has_whatsapp: boolean;
@@ -23,6 +32,7 @@ export interface CustomerRow {
 /** JSON shape returned to the Android client (camelCase). */
 export interface CustomerPayload {
   id: string;
+  kind: RecordKind;
   name: string;
   primaryPhone: string;
   hasWhatsapp: boolean;
@@ -76,6 +86,7 @@ export function parseExtraPhones(input: unknown): ExtraPhone[] {
 
 export interface ParsedCustomer {
   id: string;
+  kind: RecordKind;
   name: string;
   primaryPhone: string;
   hasWhatsapp: boolean;
@@ -127,6 +138,7 @@ export function parseCustomer(
     ok: true,
     value: {
       id,
+      kind: parseKind(record.kind),
       name,
       primaryPhone,
       hasWhatsapp: bool(record.hasWhatsapp ?? record.has_whatsapp),
@@ -155,6 +167,7 @@ export function rowToPayload(row: CustomerRow): CustomerPayload {
   }
   return {
     id: row.id,
+    kind: parseKind(row.kind),
     name: row.name,
     primaryPhone: row.primary_phone,
     hasWhatsapp: row.has_whatsapp === true,

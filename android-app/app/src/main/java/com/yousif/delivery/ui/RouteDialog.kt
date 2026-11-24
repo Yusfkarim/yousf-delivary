@@ -75,7 +75,7 @@ fun RouteDialog(
                 .fillMaxSize()
                 .background(colors.background),
         ) {
-            DetailTopBar(title = "زانیاری کڕیار", onBack = onDismiss)
+            DetailTopBar(title = if (customer.isShop) "زانیاری فرۆشگا" else "زانیاری کڕیار", onBack = onDismiss)
 
             Column(
                 modifier = Modifier
@@ -85,12 +85,16 @@ fun RouteDialog(
                     .padding(bottom = 28.dp),
             ) {
                 StatusHero(
-                    title = if (customer.hasCoordinates) "شوێنی کڕیار تۆمارکراوە" else "شوێن تۆمار نەکراوە",
+                    title = when {
+                        customer.hasCoordinates && customer.isShop -> "شوێنی فرۆشگا تۆمارکراوە"
+                        customer.hasCoordinates -> "شوێنی کڕیار تۆمارکراوە"
+                        else -> "شوێن تۆمار نەکراوە"
+                    },
                     subtitle = TextUtils.distance(distance),
                     time = TextUtils.relativeTime(customer.updatedAt),
                 )
 
-                SectionHeader(text = "زانیاری کڕیار")
+                SectionHeader(text = if (customer.isShop) "زانیاری فرۆشگا" else "زانیاری کڕیار")
                 AppCard {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         SmallAvatar(name = customer.name, size = 46)
@@ -212,7 +216,7 @@ fun RouteDialog(
                 SectionHeader(text = "دۆخی گەیاندن")
                 AppCard {
                     TimelineStep(
-                        title = "کڕیار لە لیستەکەدا تۆمارکراوە",
+                        title = if (customer.isShop) "فرۆشگا لە لیستەکەدا تۆمارکراوە" else "کڕیار لە لیستەکەدا تۆمارکراوە",
                         caption = TextUtils.relativeTime(customer.createdAt),
                         state = StepState.DONE,
                         isLast = false,

@@ -59,17 +59,26 @@ fun CustomerCard(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .size(46.dp)
-                    .clip(RoundedCornerShape(15.dp))
-                    .background(colors.brandSoft),
+                    .size(50.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (customer.isShop) colors.successSoft else colors.brandSoft),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = TextUtils.initials(customer.name),
-                    color = colors.brandDeep,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                )
+                if (customer.isShop) {
+                    Icon(
+                        AppIcons.store(),
+                        contentDescription = null,
+                        tint = colors.successDeep,
+                        modifier = Modifier.size(26.dp),
+                    )
+                } else {
+                    Text(
+                        text = TextUtils.initials(customer.name),
+                        color = colors.brandDeep,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp,
+                    )
+                }
             }
 
             Spacer(Modifier.width(11.dp))
@@ -79,7 +88,7 @@ fun CustomerCard(
                     text = customer.name,
                     color = colors.textPrimary,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 15.5.sp,
+                    fontSize = 16.5.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -88,7 +97,7 @@ fun CustomerCard(
                     Text(
                         text = PhoneUtils.pretty(customer.primaryPhone),
                         color = colors.textSecondary,
-                        fontSize = 12.sp,
+                        fontSize = 12.5.sp,
                     )
                     Spacer(Modifier.width(6.dp))
                     StatPill(
@@ -106,7 +115,7 @@ fun CustomerCard(
                 AppIcons.chevronDown(),
                 contentDescription = null,
                 tint = colors.textMuted,
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(18.dp),
             )
         }
 

@@ -3,6 +3,7 @@ package com.yousif.delivery.data.remote
 import com.google.gson.Gson
 import com.yousif.delivery.data.Customer
 import com.yousif.delivery.data.ExtraPhone
+import com.yousif.delivery.data.Kinds
 import com.yousif.delivery.data.SyncStatus
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -29,6 +30,7 @@ data class ApiResponse<T>(
 
 fun Customer.toDto(): CustomerDto = CustomerDto(
     id = id,
+    kind = Kinds.normalize(kind),
     name = name,
     primaryPhone = primaryPhone,
     hasWhatsapp = hasWhatsapp,
@@ -43,6 +45,7 @@ fun Customer.toDto(): CustomerDto = CustomerDto(
 
 fun CustomerDto.toDomain(syncStatus: SyncStatus): Customer = Customer(
     id = id ?: "",
+    kind = Kinds.normalize(kind),
     name = name ?: "",
     primaryPhone = primaryPhone ?: "",
     hasWhatsapp = hasWhatsapp,

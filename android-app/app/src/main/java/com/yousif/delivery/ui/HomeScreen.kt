@@ -52,13 +52,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yousif.delivery.data.Customer
+import com.yousif.delivery.data.Kinds
 import com.yousif.delivery.ui.icons.AppIcons
 import com.yousif.delivery.ui.theme.LocalAppColors
+import com.yousif.delivery.util.ShareInbox
 import com.yousif.delivery.util.TextUtils
 import com.yousif.delivery.util.hasLocationPermission
 import com.yousif.delivery.viewmodel.MainViewModel
 
-private enum class HomeTab { CUSTOMERS, MAP }
+private enum class HomeTab { CUSTOMERS, SHOPS, MAP }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,7 +69,9 @@ fun HomeScreen(viewModel: MainViewModel) {
     val context = LocalContext.current
 
     val customers by viewModel.customers.collectAsStateWithLifecycle()
-    val visible by viewModel.visibleCustomers.collectAsStateWithLifecycle()
+    val shops by viewModel.shops.collectAsStateWithLifecycle()
+    val visibleCustomers by viewModel.visibleCustomers.collectAsStateWithLifecycle()
+    val visibleShops by viewModel.visibleShops.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
     val nearestFirst by viewModel.nearestFirst.collectAsStateWithLifecycle()
     val syncing by viewModel.syncing.collectAsStateWithLifecycle()
@@ -82,6 +86,7 @@ fun HomeScreen(viewModel: MainViewModel) {
     var routeTarget by remember { mutableStateOf<Customer?>(null) }
     var deleteTarget by remember { mutableStateOf<Customer?>(null) }
     var showSettings by remember { mutableStateOf(false) }
+    var prefill by remember { mutableStateOf<MapPoint?>(null) }
     var pendingGpsCallback by remember { mutableStateOf<((Double, Double) -> Unit)?>(null) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -109,6 +114,21 @@ fun HomeScreen(viewModel: MainViewModel) {
         }
     }
 
+    // A Google Maps link shared into the app opens a ready-to-save customer.
+    val sharedLink by ShareInbox.link.collectAsStateWithLifecycle()
+    LaunchedEffect(sharedLink) {
+        val link = sharedLink ?: return@LaunchedEffect
+        ShareInbox.clear()
+        viewModel.resolveMapLink(link) { coordinates ->
+            if (coordinates != null) {
+                prefill = MapPoint(coordinates.first, coordinates.second)
+                editing = null
+                tab = HomeTab.CUSTOMERS
+                showSheet = true
+            }
+        }
+    }
+
     fun requestGps(onFix: (Double, Double) -> Unit) {
         if (hasLocationPermission(context)) {
             viewModel.requestGpsFix(onFix)
@@ -122,6 +142,10 @@ fun HomeScreen(viewModel: MainViewModel) {
             )
         }
     }
+
+    val isShops = tab == HomeTab.SHOPS
+    val activeList = if (isShops) shops else customers
+    val activeVisible = if (isShops) visibleShops else visibleCustomers
 
     Scaffold(
         containerColor = colors.background,
@@ -141,7 +165,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                 .padding(padding),
         ) {
             when (tab) {
-                HomeTab.CUSTOMERS -> Column(Modifier.fillMaxSize()) {
+                HomeTab.CUSTOMERS, HomeTab.SHOPS -> Column(Modifier.fillMaxSize()) {
                     SearchField(
                         query = query,
                         onQueryChange = viewModel::setQuery,
@@ -161,15 +185,16 @@ fun HomeScreen(viewModel: MainViewModel) {
                         )
                         Spacer(Modifier.width(10.dp))
                         StatPill(
-                            text = TextUtils.toKurdish(customers.size.toString()) + " کڕیار",
-                            icon = AppIcons.user(),
+                            text = TextUtils.toKurdish(activeList.size.toString()) +
+                                if (isShops) " فرۆشگا" else " کڕیار",
+                            icon = if (isShops) AppIcons.store() else AppIcons.user(),
                             tint = colors.onBrand,
                             soft = colors.brand,
                         )
                     }
 
                     SectionHeader(
-                        text = "کڕیارەکان",
+                        text = if (isShops) "فرۆشگاکان" else "کڕیارەکان",
                         modifier = Modifier.padding(horizontal = 16.dp),
                     )
 
@@ -180,32 +205,36 @@ fun HomeScreen(viewModel: MainViewModel) {
                     ) {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 118.dp),
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 132.dp),
                             verticalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
-                            if (visible.isEmpty()) {
+                            if (activeVisible.isEmpty()) {
                                 item {
                                     EmptyState(
-                                        title = if (customers.isEmpty()) {
-                                            "هیچ کڕیارێک نییە لە ئێستادا"
-                                        } else {
-                                            "هیچ ئەنجامێک نەدۆزرایەوە"
+                                        title = when {
+                                            activeList.isEmpty() && isShops -> "هیچ فرۆشگایەک نییە لە ئێستادا"
+                                            activeList.isEmpty() -> "هیچ کڕیارێک نییە لە ئێستادا"
+                                            else -> "هیچ ئەنجامێک نەدۆزرایەوە"
                                         },
-                                        hint = if (customers.isEmpty()) {
-                                            "بە دوگمەی «نوێ» کڕیارێک زیاد بکە — ناو، ژمارە و شوێن."
-                                        } else {
-                                            "گەڕانەکەت بگۆڕە یان پاکی بکەرەوە بۆ بینینی هەموو کڕیارەکان."
+                                        hint = when {
+                                            activeList.isEmpty() && isShops ->
+                                                "بە دوگمەی «نوێ» فرۆشگایەک زیاد بکە — ناو، ژمارە و شوێن."
+                                            activeList.isEmpty() ->
+                                                "بە دوگمەی «نوێ» کڕیارێک زیاد بکە — ناو، ژمارە و شوێن."
+                                            else ->
+                                                "گەڕانەکەت بگۆڕە یان پاکی بکەرەوە بۆ بینینی هەموو تۆمارەکان."
                                         },
                                     )
                                 }
                             }
-                            items(items = visible, key = { it.id }) { customer ->
+                            items(items = activeVisible, key = { it.id }) { customer ->
                                 CustomerCard(
                                     customer = customer,
                                     distanceMeters = viewModel.distanceTo(customer),
                                     onOpenRoute = { routeTarget = customer },
                                     onEdit = {
                                         editing = customer
+                                        prefill = null
                                         showSheet = true
                                     },
                                     onDelete = { deleteTarget = customer },
@@ -216,7 +245,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                 }
 
                 HomeTab.MAP -> MapScreen(
-                    customers = visible,
+                    customers = customers + shops,
                     myLocation = myLocation,
                     distanceOf = { customer -> viewModel.distanceTo(customer) },
                     onOpenRoute = { customer -> routeTarget = customer },
@@ -229,11 +258,12 @@ fun HomeScreen(viewModel: MainViewModel) {
             HomeBottomBar(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(horizontal = 20.dp, vertical = 18.dp),
+                    .padding(horizontal = 14.dp, vertical = 16.dp),
                 tab = tab,
                 onTab = { tab = it },
                 onAdd = {
                     editing = null
+                    prefill = null
                     showSheet = true
                 },
             )
@@ -243,11 +273,19 @@ fun HomeScreen(viewModel: MainViewModel) {
     if (showSheet) {
         CustomerSheet(
             initial = editing,
+            kind = if (isShops) Kinds.SHOP else Kinds.CUSTOMER,
+            prefill = prefill,
             myLocation = myLocation,
             onRequestGps = { onFix -> requestGps(onFix) },
-            onDismiss = { showSheet = false },
+            onDismiss = {
+                showSheet = false
+                prefill = null
+            },
             onSave = { draft ->
-                viewModel.saveCustomer(draft) { showSheet = false }
+                viewModel.saveCustomer(draft) {
+                    showSheet = false
+                    prefill = null
+                }
             },
         )
     }
@@ -270,6 +308,9 @@ fun HomeScreen(viewModel: MainViewModel) {
             onSaveUrl = { viewModel.updateBaseUrl(it) },
             onTest = { viewModel.testConnection() },
             onSync = { viewModel.refresh() },
+            onExport = { viewModel.backupJson() },
+            onExportName = { viewModel.backupFileName() },
+            onImport = { json, done -> viewModel.importBackup(json, done) },
             onLock = {
                 showSettings = false
                 viewModel.lockApp()
@@ -281,7 +322,12 @@ fun HomeScreen(viewModel: MainViewModel) {
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
             containerColor = colors.surface,
-            title = { Text("سڕینەوەی کڕیار", color = colors.textPrimary) },
+            title = {
+                Text(
+                    if (customer.isShop) "سڕینەوەی فرۆشگا" else "سڕینەوەی کڕیار",
+                    color = colors.textPrimary,
+                )
+            },
             text = {
                 Text(
                     "دڵنیایی لە سڕینەوەی «${customer.name}»؟ ئەم کارە لە سێرڤەریش دەسڕدرێتەوە.",
@@ -323,12 +369,12 @@ private fun HomeHeader(
             SoftIconButton(icon = AppIcons.bell(), onClick = onBell, contentDescription = "ڕێکخستن")
             Spacer(Modifier.weight(1f))
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                BrandBadge(size = 34.dp)
+                BrandBadge(size = 36.dp)
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = "یوسف دلیڤەری",
                     color = colors.brand,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
                 )
@@ -345,7 +391,7 @@ private fun HomeHeader(
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .size(17.dp)
+                            .size(18.dp)
                             .clip(RoundedCornerShape(50))
                             .background(colors.brand)
                             .border(2.dp, colors.background, RoundedCornerShape(50)),
@@ -354,7 +400,7 @@ private fun HomeHeader(
                         Text(
                             text = TextUtils.toKurdish(pending.toString()),
                             color = colors.onBrand,
-                            fontSize = 8.sp,
+                            fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                         )
                     }
@@ -363,14 +409,14 @@ private fun HomeHeader(
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .size(17.dp)
+                            .size(18.dp)
                             .clip(RoundedCornerShape(50))
                             .background(colors.surface)
                             .border(2.dp, colors.background, RoundedCornerShape(50)),
                         contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(10.dp),
+                            modifier = Modifier.size(11.dp),
                             strokeWidth = 1.5.dp,
                             color = colors.brand,
                         )
@@ -395,7 +441,7 @@ private fun HomeHeader(
                 Text(
                     text = if (gpsActive) "GPS چالاکە" else "چاوەڕوانی GPS",
                     color = colors.textSecondary,
-                    fontSize = 11.5.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                 )
             }
@@ -412,13 +458,13 @@ private fun HomeHeader(
                     AppIcons.clock(),
                     contentDescription = null,
                     tint = colors.brandDeep,
-                    modifier = Modifier.size(13.dp),
+                    modifier = Modifier.size(14.dp),
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(
                     text = "ئەمڕۆ",
                     color = colors.brandDeep,
-                    fontSize = 11.5.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                 )
             }
@@ -440,14 +486,14 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
             .padding(horizontal = 16.dp),
         singleLine = true,
         placeholder = {
-            Text("گەڕان: ناو، ژمارە، ناونیشان", fontSize = 13.sp, color = colors.textMuted)
+            Text("گەڕان: ناو، ژمارە، ناونیشان", fontSize = 13.5.sp, color = colors.textMuted)
         },
         leadingIcon = {
             Icon(
                 AppIcons.search(),
                 contentDescription = null,
                 tint = colors.textSecondary,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(20.dp),
             )
         },
         trailingIcon = {
@@ -457,13 +503,13 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
                         AppIcons.close(),
                         contentDescription = "سڕینەوەی گەڕان",
                         tint = colors.textSecondary,
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(18.dp),
                     )
                 }
             }
         },
         shape = RoundedCornerShape(18.dp),
-        textStyle = TextStyle(fontSize = 13.5.sp, color = colors.textPrimary),
+        textStyle = TextStyle(fontSize = 14.sp, color = colors.textPrimary),
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = colors.surface,
             unfocusedContainerColor = colors.surface,
@@ -501,17 +547,23 @@ private fun HomeBottomBar(
             icon = AppIcons.plus(),
             container = colors.brand,
             contentColor = colors.onBrand,
-            modifier = Modifier.width(104.dp),
-            height = 46.dp,
-            fontSize = 13,
+            modifier = Modifier.width(92.dp),
+            height = 48.dp,
+            fontSize = 14,
         )
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.width(4.dp))
         NavItem(
-            icon = AppIcons.list(),
+            icon = AppIcons.user(),
             label = "کڕیارەکان",
             selected = tab == HomeTab.CUSTOMERS,
             modifier = Modifier.weight(1f),
         ) { onTab(HomeTab.CUSTOMERS) }
+        NavItem(
+            icon = AppIcons.store(),
+            label = "فرۆشگا",
+            selected = tab == HomeTab.SHOPS,
+            modifier = Modifier.weight(1f),
+        ) { onTab(HomeTab.SHOPS) }
         NavItem(
             icon = AppIcons.map(),
             label = "نەخشە",
@@ -539,7 +591,7 @@ private fun NavItem(
     ) {
         Box(
             modifier = Modifier
-                .size(30.dp)
+                .size(32.dp)
                 .clip(RoundedCornerShape(50))
                 .background(if (selected) colors.brandSoft else Color.Transparent),
             contentAlignment = Alignment.Center,
@@ -548,15 +600,16 @@ private fun NavItem(
                 icon,
                 contentDescription = label,
                 tint = if (selected) colors.brand else colors.textMuted,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(20.dp),
             )
         }
         Spacer(Modifier.height(2.dp))
         Text(
             text = label,
             color = if (selected) colors.brandDeep else colors.textMuted,
-            fontSize = 9.sp,
+            fontSize = 9.5.sp,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            maxLines = 1,
         )
     }
 }
