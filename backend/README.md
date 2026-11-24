@@ -20,6 +20,17 @@ API ی پارێزراو بۆ ئەپی ئەندرۆید. هەموو داواکا�
 خشتەکە لە یەکەم داواکاریدا خۆکارانە دروست دەکرێت (`CREATE TABLE IF NOT EXISTS`)،
 هەروەها `CREATE INDEX IF NOT EXISTS customers_updated_at_idx`.
 
+## دوو باکئێند (خۆکارانە)
+
+| باکئێند | کاتێ کار دەکات | پێویستی بە |
+| --- | --- | --- |
+| `postgres` | `POSTGRES_URL` / `DATABASE_URL` / … هەیە و وەڵام دەداتەوە | تەنها کۆنکشن سترینگ |
+| `supabase` (REST) | یەکێک لە URL ەکان نەبوو یان کۆنکشن سەرکەوتوو نەبوو | `DELIVERY_SUPABASE_URL` + `DELIVERY_SUPABASE_SERVICE_KEY` |
+
+یەکەم باکئێند کە وەڵامی ڕاستەقینە دەداتەوە هەڵدەبژێردرێت و بۆ ماوەی
+ئینستەنسەکە لەبیر دەمێنێت. `/api/health?selftest=1` ئەوە دەردەخات کامە
+چالاکە — بەمە دەزانین کێشەکە لە کوێیە بێ ئەوەی لۆگ ببینین.
+
 ## API
 
 | Method | Route | وەڵام |
@@ -29,7 +40,8 @@ API ی پارێزراو بۆ ئەپی ئەندرۆید. هەموو داواکا�
 | `POST` | `/api/customers` | Upsert (`ON CONFLICT (id) DO UPDATE`) → `{ customer }` |
 | `PUT` | `/api/customers/[id]` | `{ customer }` · `404` |
 | `DELETE` | `/api/customers/[id]` | `{ ok: true, deleted: true, id }` · `404` |
-| `GET` | `/api/health` | `{ ok: true, databaseConfigured }` (بێ وشەی نهێنی) |
+| `GET` | `/api/health` | `{ ok, databaseConfigured, backends }` (بێ وشەی نهێنی) |
+| `GET` | `/api/health?selftest=1&password=…` | پشکنینی ڕاستەقینەی داتابەیس: `{ dbReachable, backend, host, customers }` · `?write=1` نووسین+سڕینەوە تاقی دەکاتەوە |
 
 کۆدی هەڵە: `401` وشەی نهێنی، `422` پشکنینی خانەکان، `503` داتابەیس نەبەستراوە،
 `500` کێشەی داتابەیس.

@@ -1,5 +1,4 @@
 import type { NextRequest } from 'next/server';
-import { listCustomers, upsertCustomer } from '@/lib/db';
 import { json, preflight, requireDatabase, requirePassword } from '@/lib/http';
 import { parseCustomer } from '@/lib/types';
 
@@ -15,7 +14,7 @@ export async function GET(request: NextRequest) {
   if ('response' in db) return db.response;
 
   try {
-    const customers = await listCustomers(db.pool);
+    const customers = await db.store.list();
     return json({ customers, count: customers.length });
   } catch (error) {
     console.error('[GET /api/customers]', error);
@@ -47,7 +46,7 @@ export async function POST(request: NextRequest) {
   if ('response' in db) return db.response;
 
   try {
-    const customer = await upsertCustomer(db.pool, parsed.value);
+    const customer = await db.store.upsert(parsed.value);
     return json({ customer }, 200);
   } catch (error) {
     console.error('[POST /api/customers]', error);

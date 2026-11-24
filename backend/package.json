@@ -2,7 +2,7 @@
   "name": "yousif-delivery-api",
   "version": "1.0.0",
   "private": true,
-  "description": "Yousif Delivery - password protected customers API (Vercel Postgres)",
+  "description": "Yousif Delivery - password protected customers API (Postgres or Supabase REST)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
