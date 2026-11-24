@@ -44,6 +44,13 @@ class SessionStore(context: Context) {
             prefs.edit().putString(KEY_PASSWORD, value).apply()
         }
 
+    /** 0 = follow the system, 1 = always light, 2 = always dark. */
+    var themeMode: Int
+        get() = prefs.getInt(KEY_THEME_MODE, 0)
+        set(value) {
+            prefs.edit().putInt(KEY_THEME_MODE, value).apply()
+        }
+
     var loggedIn: Boolean
         get() = prefs.getBoolean(KEY_LOGGED_IN, false) && password.isNotEmpty()
         set(value) {
@@ -61,5 +68,6 @@ class SessionStore(context: Context) {
         const val KEY_BASE_URL = "base_url"
         const val KEY_PASSWORD = "password"
         const val KEY_LOGGED_IN = "logged_in"
+        const val KEY_THEME_MODE = "theme_mode"
     }
 }

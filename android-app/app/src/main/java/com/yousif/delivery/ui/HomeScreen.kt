@@ -15,17 +15,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -43,30 +42,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yousif.delivery.data.Customer
 import com.yousif.delivery.ui.icons.AppIcons
-import com.yousif.delivery.ui.theme.AppBackground
-import com.yousif.delivery.ui.theme.AppDanger
-import com.yousif.delivery.ui.theme.AppSurface
-import com.yousif.delivery.ui.theme.AppSurfaceHigh
-import com.yousif.delivery.ui.theme.AppTextPrimary
-import com.yousif.delivery.ui.theme.AppTextSecondary
-import com.yousif.delivery.ui.theme.MetallicGold
-import com.yousif.delivery.ui.theme.NeonCyan
+import com.yousif.delivery.ui.theme.LocalAppColors
 import com.yousif.delivery.util.TextUtils
 import com.yousif.delivery.util.hasLocationPermission
 import com.yousif.delivery.viewmodel.MainViewModel
 
+private enum class HomeTab { CUSTOMERS, MAP }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(viewModel: MainViewModel) {
+    val colors = LocalAppColors.current
     val context = LocalContext.current
 
     val customers by viewModel.customers.collectAsStateWithLifecycle()
@@ -77,7 +74,9 @@ fun HomeScreen(viewModel: MainViewModel) {
     val pending by viewModel.pendingCount.collectAsStateWithLifecycle()
     val myLocation by viewModel.myLocation.collectAsStateWithLifecycle()
     val baseUrl by viewModel.baseUrl.collectAsStateWithLifecycle()
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
 
+    var tab by remember { mutableStateOf(HomeTab.CUSTOMERS) }
     var showSheet by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Customer?>(null) }
     var routeTarget by remember { mutableStateOf<Customer?>(null) }
@@ -125,146 +124,119 @@ fun HomeScreen(viewModel: MainViewModel) {
     }
 
     Scaffold(
-        containerColor = AppBackground,
+        containerColor = colors.background,
         topBar = {
-            HomeTopBar(
+            HomeHeader(
                 pending = pending,
                 syncing = syncing,
                 gpsActive = myLocation != null,
                 onSync = { viewModel.refresh() },
-                onSettings = { showSettings = true },
+                onBell = { showSettings = true },
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    editing = null
-                    showSheet = true
-                },
-                containerColor = NeonCyan,
-                contentColor = Color(0xFF04121B),
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.size(60.dp),
-            ) {
-                Icon(
-                    AppIcons.plus(),
-                    contentDescription = "زیادکردنی کڕیار",
-                    modifier = Modifier.size(26.dp),
-                )
-            }
-        },
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = viewModel::setQuery,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                singleLine = true,
-                placeholder = {
-                    Text("گەڕان: ناو، ژمارە، ناونیشان", fontSize = 13.sp, color = AppTextSecondary.copy(alpha = 0.7f))
-                },
-                leadingIcon = {
-                    Icon(
-                        AppIcons.search(),
-                        contentDescription = null,
-                        tint = AppTextSecondary,
-                        modifier = Modifier.size(18.dp),
+            when (tab) {
+                HomeTab.CUSTOMERS -> Column(Modifier.fillMaxSize()) {
+                    SearchField(
+                        query = query,
+                        onQueryChange = viewModel::setQuery,
                     )
-                },
-                trailingIcon = {
-                    if (query.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.setQuery("") }) {
-                            Icon(
-                                AppIcons.close(),
-                                contentDescription = "سڕینەوەی گەڕان",
-                                tint = AppTextSecondary,
-                                modifier = Modifier.size(17.dp),
-                            )
-                        }
-                    }
-                },
-                shape = RoundedCornerShape(18.dp),
-                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.5.sp, color = AppTextPrimary),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = AppSurface,
-                    unfocusedContainerColor = AppSurface,
-                    focusedBorderColor = NeonCyan.copy(alpha = 0.45f),
-                    unfocusedBorderColor = Color(0x1F94A3B8),
-                    cursorColor = NeonCyan,
-                ),
-            )
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SortPill(
-                    label = "نزیکترین (GPS)",
-                    icon = AppIcons.locate(),
-                    selected = nearestFirst,
-                    onClick = { viewModel.setNearestFirst(true) },
-                    modifier = Modifier.weight(1f),
-                )
-                SortPill(
-                    label = "نوێترین",
-                    icon = AppIcons.sync(),
-                    selected = !nearestFirst,
-                    onClick = { viewModel.setNearestFirst(false) },
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = TextUtils.toKurdish(customers.size.toString()),
-                    color = AppTextSecondary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-
-            PullToRefreshBox(
-                isRefreshing = syncing,
-                onRefresh = { viewModel.refresh() },
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 100.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    if (visible.isEmpty()) {
-                        item {
-                            EmptyState(
-                                title = if (customers.isEmpty()) "هێشتا کڕیارێک نییە" else "هیچ ئەنجامێک نەدۆزرایەوە",
-                                hint = if (customers.isEmpty()) {
-                                    "بە دوگمەی + کڕیارێکی نوێ زیاد بکە — ناو، ژمارە و شوێن."
-                                } else {
-                                    "گەڕانەکەت بگۆڕە یان بیکەرەوە بۆ بینینی هەموو کڕیارەکان."
-                                },
-                            )
-                        }
-                    }
-                    items(items = visible, key = { it.id }) { customer ->
-                        CustomerCard(
-                            customer = customer,
-                            distanceMeters = viewModel.distanceTo(customer),
-                            onOpenRoute = { routeTarget = customer },
-                            onEdit = {
-                                editing = customer
-                                showSheet = true
-                            },
-                            onDelete = { deleteTarget = customer },
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Segmented(
+                            options = listOf("نزیکترین", "نوێترین"),
+                            selectedIndex = if (nearestFirst) 0 else 1,
+                            modifier = Modifier.weight(1f),
+                            onSelect = { index -> viewModel.setNearestFirst(index == 0) },
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        StatPill(
+                            text = TextUtils.toKurdish(customers.size.toString()) + " کڕیار",
+                            icon = AppIcons.user(),
+                            tint = colors.brandDeep,
+                            soft = colors.brandSoft,
                         )
                     }
+
+                    SectionHeader(
+                        text = "کڕیارەکان",
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
+
+                    PullToRefreshBox(
+                        isRefreshing = syncing,
+                        onRefresh = { viewModel.refresh() },
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 118.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            if (visible.isEmpty()) {
+                                item {
+                                    EmptyState(
+                                        title = if (customers.isEmpty()) {
+                                            "هیچ کڕیارێک نییە لە ئێستادا"
+                                        } else {
+                                            "هیچ ئەنجامێک نەدۆزرایەوە"
+                                        },
+                                        hint = if (customers.isEmpty()) {
+                                            "بە دوگمەی «نوێ» کڕیارێک زیاد بکە — ناو، ژمارە و شوێن."
+                                        } else {
+                                            "گەڕانەکەت بگۆڕە یان پاکی بکەرەوە بۆ بینینی هەموو کڕیارەکان."
+                                        },
+                                    )
+                                }
+                            }
+                            items(items = visible, key = { it.id }) { customer ->
+                                CustomerCard(
+                                    customer = customer,
+                                    distanceMeters = viewModel.distanceTo(customer),
+                                    onOpenRoute = { routeTarget = customer },
+                                    onEdit = {
+                                        editing = customer
+                                        showSheet = true
+                                    },
+                                    onDelete = { deleteTarget = customer },
+                                )
+                            }
+                        }
+                    }
                 }
+
+                HomeTab.MAP -> MapScreen(
+                    customers = visible,
+                    myLocation = myLocation,
+                    distanceOf = { customer -> viewModel.distanceTo(customer) },
+                    onOpenRoute = { customer -> routeTarget = customer },
+                    onLocate = {
+                        requestGps { _, _ -> viewModel.onLocationPermissionGranted() }
+                    },
+                )
             }
+
+            HomeBottomBar(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 20.dp, vertical = 18.dp),
+                tab = tab,
+                onTab = { tab = it },
+                onAdd = {
+                    editing = null
+                    showSheet = true
+                },
+            )
         }
     }
 
@@ -292,6 +264,8 @@ fun HomeScreen(viewModel: MainViewModel) {
         SettingsSheet(
             baseUrl = baseUrl,
             pendingCount = pending,
+            themeMode = themeMode,
+            onThemeMode = { viewModel.setThemeMode(it) },
             onDismiss = { showSettings = false },
             onSaveUrl = { viewModel.updateBaseUrl(it) },
             onTest = { viewModel.testConnection() },
@@ -306,12 +280,12 @@ fun HomeScreen(viewModel: MainViewModel) {
     deleteTarget?.let { customer ->
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
-            containerColor = AppSurface,
-            title = { Text("سڕینەوەی کڕیار", color = AppTextPrimary) },
+            containerColor = colors.surface,
+            title = { Text("سڕینەوەی کڕیار", color = colors.textPrimary) },
             text = {
                 Text(
                     "دڵنیایی لە سڕینەوەی «${customer.name}»؟ ئەم کارە لە سێرڤەریش دەسڕدرێتەوە.",
-                    color = AppTextSecondary,
+                    color = colors.textSecondary,
                     fontSize = 13.sp,
                 )
             },
@@ -319,7 +293,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                 TextButton(onClick = {
                     viewModel.deleteCustomer(customer)
                     deleteTarget = null
-                }) { Text("سڕینەوە", color = AppDanger) }
+                }) { Text("سڕینەوە", color = colors.danger) }
             },
             dismissButton = {
                 TextButton(onClick = { deleteTarget = null }) { Text("پاشگەزبوونەوە") }
@@ -328,119 +302,260 @@ fun HomeScreen(viewModel: MainViewModel) {
     }
 }
 
+/* ------------------------------------------------------------------ header */
+
 @Composable
-private fun HomeTopBar(
+private fun HomeHeader(
     pending: Int,
     syncing: Boolean,
     gpsActive: Boolean,
     onSync: () -> Unit,
-    onSettings: () -> Unit,
+    onBell: () -> Unit,
 ) {
-    Row(
+    val colors = LocalAppColors.current
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 18.dp, end = 12.dp, top = 18.dp, bottom = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .background(colors.background)
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 6.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(15.dp))
-                .background(
-                    Brush.linearGradient(
-                        listOf(NeonCyan, Color(0xFF0EA5E9)),
-                    ),
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                AppIcons.pin(),
-                contentDescription = null,
-                tint = Color(0xFF04121B),
-                modifier = Modifier.size(22.dp),
-            )
-        }
-
-        Spacer(Modifier.width(12.dp))
-
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = "یوسف دلیڤەری",
-                color = AppTextPrimary,
-                fontSize = 19.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(Modifier.size(2.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                GpsDot(active = gpsActive)
-                Spacer(Modifier.width(6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SoftIconButton(icon = AppIcons.bell(), onClick = onBell, contentDescription = "ڕێکخستن")
+            Spacer(Modifier.weight(1f))
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                BrandBadge(size = 34.dp)
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    text = if (gpsActive) "GPS چالاکە" else "چاوەڕوانی GPS",
-                    color = AppTextSecondary,
+                    text = "یوسف دلیڤەری",
+                    color = colors.brand,
                     fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
                 )
             }
-        }
-
-        Box {
-            TopBarIconButton(onClick = onSync) {
+            Spacer(Modifier.weight(1f))
+            Box {
+                SoftIconButton(
+                    icon = AppIcons.sync(),
+                    onClick = onSync,
+                    contentDescription = "هاوکاتکردن",
+                    tint = colors.brand,
+                )
+                if (pending > 0 && !syncing) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(17.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(colors.brand)
+                            .border(2.dp, colors.background, RoundedCornerShape(50)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = TextUtils.toKurdish(pending.toString()),
+                            color = colors.onBrand,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
                 if (syncing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = NeonCyan,
-                    )
-                } else {
-                    Icon(
-                        AppIcons.sync(),
-                        contentDescription = "هاوکاتکردن لەگەڵ سێرڤەر",
-                        tint = if (pending == 0) AppTextSecondary else MetallicGold,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            }
-            if (pending > 0 && !syncing) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .size(15.dp)
-                        .clip(CircleShape)
-                        .background(MetallicGold),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = TextUtils.toKurdish(pending.toString()),
-                        color = Color(0xFF1A1206),
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(17.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(colors.surface)
+                            .border(2.dp, colors.background, RoundedCornerShape(50)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(10.dp),
+                            strokeWidth = 1.5.dp,
+                            color = colors.brand,
+                        )
+                    }
                 }
             }
         }
 
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.height(12.dp))
 
-        TopBarIconButton(onClick = onSettings) {
-            Icon(
-                AppIcons.settings(),
-                contentDescription = "ڕێکخستن",
-                tint = AppTextSecondary,
-                modifier = Modifier.size(20.dp),
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(colors.surface)
+                    .border(1.dp, colors.border, RoundedCornerShape(50))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                GpsDot(active = gpsActive)
+                Spacer(Modifier.width(7.dp))
+                Text(
+                    text = if (gpsActive) "GPS چالاکە" else "چاوەڕوانی GPS",
+                    color = colors.textSecondary,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(colors.surfaceAlt)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    AppIcons.clock(),
+                    contentDescription = null,
+                    tint = colors.brandDeep,
+                    modifier = Modifier.size(13.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "ئەمڕۆ",
+                    color = colors.brandDeep,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
         }
     }
 }
 
+/* ------------------------------------------------------------------ search */
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TopBarIconButton(onClick: () -> Unit, content: @Composable () -> Unit) {
-    val shape = RoundedCornerShape(14.dp)
-    Box(
+private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
+    val colors = LocalAppColors.current
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
         modifier = Modifier
-            .size(42.dp)
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        singleLine = true,
+        placeholder = {
+            Text("گەڕان: ناو، ژمارە، ناونیشان", fontSize = 13.sp, color = colors.textMuted)
+        },
+        leadingIcon = {
+            Icon(
+                AppIcons.search(),
+                contentDescription = null,
+                tint = colors.textSecondary,
+                modifier = Modifier.size(18.dp),
+            )
+        },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(
+                        AppIcons.close(),
+                        contentDescription = "سڕینەوەی گەڕان",
+                        tint = colors.textSecondary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+        },
+        shape = RoundedCornerShape(18.dp),
+        textStyle = TextStyle(fontSize = 13.5.sp, color = colors.textPrimary),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = colors.surface,
+            unfocusedContainerColor = colors.surface,
+            focusedBorderColor = colors.brand.copy(alpha = 0.55f),
+            unfocusedBorderColor = colors.border,
+            cursorColor = colors.brand,
+        ),
+    )
+}
+
+/* --------------------------------------------------------------- bottom bar */
+
+@Composable
+private fun HomeBottomBar(
+    tab: HomeTab,
+    modifier: Modifier = Modifier,
+    onTab: (HomeTab) -> Unit,
+    onAdd: () -> Unit,
+) {
+    val colors = LocalAppColors.current
+    val shape = RoundedCornerShape(50)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(14.dp, shape, clip = false, ambientColor = Color(0x22A0785A), spotColor = Color(0x22A0785A))
             .clip(shape)
-            .background(AppSurfaceHigh.copy(alpha = 0.6f))
-            .border(1.dp, Color(0x1494A3B8), shape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) { content() }
+            .background(colors.surface)
+            .border(1.dp, colors.border, shape)
+            .padding(start = 8.dp, end = 8.dp, top = 7.dp, bottom = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PillButton(
+            label = "نوێ",
+            onClick = onAdd,
+            icon = AppIcons.plus(),
+            container = colors.brand,
+            contentColor = colors.onBrand,
+            modifier = Modifier.width(104.dp),
+            height = 46.dp,
+            fontSize = 13,
+        )
+        Spacer(Modifier.width(6.dp))
+        NavItem(
+            icon = AppIcons.list(),
+            label = "کڕیارەکان",
+            selected = tab == HomeTab.CUSTOMERS,
+            modifier = Modifier.weight(1f),
+        ) { onTab(HomeTab.CUSTOMERS) }
+        NavItem(
+            icon = AppIcons.map(),
+            label = "نەخشە",
+            selected = tab == HomeTab.MAP,
+            modifier = Modifier.weight(1f),
+        ) { onTab(HomeTab.MAP) }
+    }
+}
+
+@Composable
+private fun NavItem(
+    icon: ImageVector,
+    label: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val colors = LocalAppColors.current
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(50))
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clip(RoundedCornerShape(50))
+                .background(if (selected) colors.brandSoft else Color.Transparent),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                icon,
+                contentDescription = label,
+                tint = if (selected) colors.brand else colors.textMuted,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = label,
+            color = if (selected) colors.brandDeep else colors.textMuted,
+            fontSize = 9.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+        )
+    }
 }

@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -28,10 +29,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.yousif.delivery.ui.icons.AppIcons
-import com.yousif.delivery.ui.theme.AppTextSecondary
-import com.yousif.delivery.ui.theme.NeonCyan
+import com.yousif.delivery.ui.theme.LocalAppColors
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.XYTileSource
+import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.MapEventsOverlay
@@ -44,28 +45,31 @@ data class MapPoint(
 )
 
 /**
- * Dark CARTO street tiles (labels + roads visible) through osmdroid — no API
- * key, no watermark. Tiles are cached on disk by osmdroid, so the map keeps
- * working after the first load even with a weak connection.
+ * OpenStreetMap tiles through osmdroid — no API key, no watermark. The palette
+ * follows the app theme: CARTO `light_all` by day, `dark_all` at night, so the
+ * map never looks pasted in. Tiles are cached on disk by osmdroid.
  */
-private val DarkTiles: XYTileSource by lazy {
-    XYTileSource(
-        "CartoDark",
+private fun tileSource(dark: Boolean): XYTileSource {
+    val name = if (dark) "CartoDark" else "CartoLight"
+    val style = if (dark) "dark_all" else "light_all"
+    return XYTileSource(
+        name,
         3,
         19,
         256,
         ".png",
         arrayOf(
-            "https://a.basemaps.cartocdn.com/dark_all/",
-            "https://b.basemaps.cartocdn.com/dark_all/",
-            "https://c.basemaps.cartocdn.com/dark_all/",
-            "https://d.basemaps.cartocdn.com/dark_all/",
+            "https://a.basemaps.cartocdn.com/$style/",
+            "https://b.basemaps.cartocdn.com/$style/",
+            "https://c.basemaps.cartocdn.com/$style/",
+            "https://d.basemaps.cartocdn.com/$style/",
         ),
         "© OpenStreetMap · © CARTO",
     )
 }
 
-private val MAP_BACKGROUND = 0xFF0F1622.toInt()
+private val LightTiles: XYTileSource by lazy { tileSource(false) }
+private val DarkTiles: XYTileSource by lazy { tileSource(true) }
 
 @Composable
 fun OsmMap(
@@ -74,28 +78,30 @@ fun OsmMap(
     zoom: Double = 15.0,
     me: MapPoint? = null,
     customer: MapPoint? = null,
+    points: List<MapPoint> = emptyList(),
     showControls: Boolean = true,
     onLocate: (() -> Unit)? = null,
     onTap: ((Double, Double) -> Unit)? = null,
 ) {
+    val colors = LocalAppColors.current
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val source = if (colors.isDark) DarkTiles else LightTiles
+    val background = if (colors.isDark) 0xFF15100D.toInt() else 0xFFFFF8F3.toInt()
 
     val mapView = remember {
         MapView(context).apply {
-            setTileSource(DarkTiles)
+            setTileSource(source)
             setMultiTouchControls(true)
             setUseDataConnection(true)
             setTilesScaledToDpi(true)
             minZoomLevel = 3.0
             maxZoomLevel = 19.0
-            overlayManager.tilesOverlay.setLoadingBackgroundColor(MAP_BACKGROUND)
-            overlayManager.tilesOverlay.setLoadingLineColor(MAP_BACKGROUND)
             controller.setZoom(zoom)
         }
     }
 
-    val lastCenter = remember { arrayOfNulls<MapPoint>(1) }
+    val state = remember { MapState() }
 
     DisposableEffect(lifecycleOwner, mapView) {
         val observer = LifecycleEventObserver { _, event ->
@@ -119,9 +125,16 @@ fun OsmMap(
             factory = { mapView },
             modifier = Modifier.fillMaxSize(),
             update = { view ->
+                if (state.source !== source) {
+                    state.source = source
+                    view.setTileSource(source)
+                }
+                view.overlayManager.tilesOverlay.setLoadingBackgroundColor(background)
+                view.overlayManager.tilesOverlay.setLoadingLineColor(background)
+
                 val target = center ?: me ?: customer
-                if (target != null && lastCenter[0] != target) {
-                    lastCenter[0] = target
+                if (target != null && state.center !== target) {
+                    state.center = target
                     view.controller.setZoom(zoom)
                     view.controller.animateTo(GeoPoint(target.latitude, target.longitude))
                 }
@@ -142,8 +155,25 @@ fun OsmMap(
                 if (customer != null) {
                     view.overlays.add(marker(view, customer, customer.title.ifBlank { "شوێنی کڕیار" }))
                 }
+                points.forEach { point ->
+                    view.overlays.add(marker(view, point, point.title))
+                }
                 if (me != null) {
                     view.overlays.add(marker(view, me, me.title.ifBlank { "شوێنی من" }))
+                }
+
+                // Frame every customer once, so the whole delivery round is visible.
+                if (target == null && !state.fitted && points.size > 1) {
+                    state.fitted = true
+                    val latitudes = points.map { it.latitude }
+                    val longitudes = points.map { it.longitude }
+                    val box = BoundingBox(
+                        latitudes.maxOrNull() ?: 0.0,
+                        longitudes.maxOrNull() ?: 0.0,
+                        latitudes.minOrNull() ?: 0.0,
+                        longitudes.minOrNull() ?: 0.0,
+                    )
+                    view.zoomToBoundingBox(box, false, 90)
                 }
                 view.invalidate()
             },
@@ -156,21 +186,21 @@ fun OsmMap(
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                MapButton(AppIcons.plus()) {
+                MapButton(AppIcons.plus(), colors.isDark) {
                     mapView.controller.setZoom(mapView.zoomLevelDouble + 1.0)
                 }
-                MapButton(AppIcons.minus()) {
+                MapButton(AppIcons.minus(), colors.isDark) {
                     mapView.controller.setZoom(mapView.zoomLevelDouble - 1.0)
                 }
                 if (onLocate != null) {
-                    MapButton(AppIcons.locate(), tint = NeonCyan, onClick = onLocate)
+                    MapButton(AppIcons.locate(), colors.isDark, tint = colors.brand, onClick = onLocate)
                 }
             }
         }
 
         Text(
             text = "© OpenStreetMap · © CARTO",
-            color = AppTextSecondary.copy(alpha = 0.7f),
+            color = if (colors.isDark) Color(0xFF9C8A7C) else Color(0xFF9C8A7C),
             fontSize = 8.sp,
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -179,23 +209,36 @@ fun OsmMap(
     }
 }
 
+private class MapState {
+    var source: XYTileSource? = null
+    var center: MapPoint? = null
+    var fitted = false
+}
+
 @Composable
 private fun MapButton(
     icon: ImageVector,
-    tint: Color = Color(0xFFE2E8F0),
+    dark: Boolean,
     onClick: () -> Unit,
+    tint: Color? = null,
 ) {
-    val shape = RoundedCornerShape(13.dp)
+    val shape = RoundedCornerShape(14.dp)
     Box(
         modifier = Modifier
             .size(40.dp)
+            .shadow(4.dp, shape, clip = false)
             .clip(shape)
-            .background(Color(0xF2101725))
-            .border(1.dp, Color(0x3394A3B8), shape)
+            .background(if (dark) Color(0xFFE6201A15) else Color(0xFFFFFFFF))
+            .border(1.dp, if (dark) Color(0xFF3A2D24) else Color(0xFFF2E2D6), shape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(19.dp))
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = tint ?: if (dark) Color(0xFFF0E7DF) else Color(0xFF2A1A11),
+            modifier = Modifier.size(19.dp),
+        )
     }
 }
 
