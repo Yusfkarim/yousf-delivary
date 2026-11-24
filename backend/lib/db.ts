@@ -98,6 +98,14 @@ export function supabaseConfig(): { url: string; key: string } | null {
   return { url: url.replace(/\/+$/, ''), key };
 }
 
+/** True when the Supabase credentials were set explicitly for this app. */
+export function supabasePreferred(): boolean {
+  const explicitUrl = clean(process.env.DELIVERY_SUPABASE_URL);
+  const explicitKey =
+    clean(process.env.DELIVERY_SUPABASE_SERVICE_KEY) || clean(process.env.SUPABASE_SECRET_KEY);
+  return explicitUrl !== '' && explicitKey !== '';
+}
+
 /** True when at least one backend has credentials. Cheap, no network call. */
 export function isConfigured(): boolean {
   return postgresUrls().length > 0 || supabaseConfig() !== null;
@@ -105,14 +113,18 @@ export function isConfigured(): boolean {
 
 // ── Postgres ────────────────────────────────────────────────────────────────
 
-async function withRetry<T>(task: () => Promise<T>, attempts = 3): Promise<T> {
+/**
+ * Retries are deliberately short: a serverless request must not spend 30s
+ * waiting for a misconfigured backend before the fallback gets a chance.
+ */
+async function withRetry<T>(task: () => Promise<T>, attempts = 2): Promise<T> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
       return await task();
     } catch (error) {
       lastError = error;
-      if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, attempt * 300));
+      if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, 150));
     }
   }
   throw lastError;
@@ -143,7 +155,7 @@ function createPostgresStore(url: string): CustomerStore {
         connectionString: url,
         max: 3,
         idleTimeoutMillis: 10_000,
-        connectionTimeoutMillis: 12_000,
+        connectionTimeoutMillis: 4_000,
         ssl: needsRelaxedTls(url) ? { rejectUnauthorized: false } : undefined,
       });
     }
@@ -172,10 +184,8 @@ function createPostgresStore(url: string): CustomerStore {
     detail: hostOf(url),
 
     async ping() {
-      await withRetry(async () => {
-        const pg = await ready();
-        await pg.query('SELECT 1');
-      });
+      const pg = connect();
+      await withRetry(() => pg.query('SELECT 1'));
     },
 
     async list() {
@@ -365,34 +375,78 @@ export function describeError(error: unknown): string {
   return message.replace(/postgres(ql)?:\/\/\S+/gi, '[url]').slice(0, 400);
 }
 
-let resolved: Promise<CustomerStore> | null = null;
+/** One probe attempt, kept for /api/health?selftest=1 diagnostics. */
+export interface ProbeResult {
+  backend: 'postgres' | 'supabase';
+  host: string;
+  ok: boolean;
+  ms: number;
+  error?: string;
+}
+
+let lastProbes: ProbeResult[] = [];
+
+export function lastProbeReport(): ProbeResult[] {
+  return lastProbes;
+}
+
+/** Connection strings that already failed in this instance — never retried. */
+const failedUrls = new Set<string>();
+
+interface Candidate {
+  backend: 'postgres' | 'supabase';
+  url?: string;
+  make: () => CustomerStore;
+}
 
 async function resolveStore(): Promise<CustomerStore> {
-  const problems: string[] = [];
+  const candidates: Candidate[] = [];
 
-  for (const url of postgresUrls()) {
-    const store = createPostgresStore(url);
-    try {
-      await store.ping();
-      return store;
-    } catch (error) {
-      problems.push(`postgres ${store.detail}: ${describeError(error)}`);
-    }
-  }
+  const postgresCandidates: Candidate[] = postgresUrls()
+    .filter((url) => !failedUrls.has(url))
+    .map((url) => ({ backend: 'postgres', url, make: () => createPostgresStore(url) }));
 
   const config = supabaseConfig();
-  if (config) {
-    const store = createSupabaseStore(config);
+  const supabaseCandidate: Candidate[] = config
+    ? [{ backend: 'supabase', make: () => createSupabaseStore(config) }]
+    : [];
+
+  // An explicitly configured Supabase project wins: it is the backend we know
+  // works, so a stale POSTGRES_URL can never delay the first request.
+  const ordered = supabasePreferred()
+    ? [...supabaseCandidate, ...postgresCandidates]
+    : [...postgresCandidates, ...supabaseCandidate];
+
+  const problems: string[] = [];
+  const probes: ProbeResult[] = [];
+
+  for (const candidate of ordered) {
+    const store = candidate.make();
+    const started = Date.now();
     try {
       await store.ping();
+      probes.push({ backend: store.backend, host: store.detail, ok: true, ms: Date.now() - started });
+      lastProbes = probes;
       return store;
     } catch (error) {
-      problems.push(`supabase: ${describeError(error)}`);
+      const message = describeError(error);
+      probes.push({
+        backend: store.backend,
+        host: store.detail,
+        ok: false,
+        ms: Date.now() - started,
+        error: message,
+      });
+      if (candidate.backend === 'postgres' && candidate.url) failedUrls.add(candidate.url);
+      problems.push(`${store.backend} ${store.detail}: ${message}`);
     }
   }
 
+  lastProbes = probes;
   throw new Error(problems.length > 0 ? problems.join(' | ') : 'no database configured');
 }
+
+let resolved: Promise<CustomerStore> | null = null;
 
 /** The active store, resolved once per serverless instance. */
 export function getStore(): Promise<CustomerStore> {
