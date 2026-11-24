@@ -24,7 +24,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -607,7 +606,7 @@ private object TileCache {
     private val inFlight = HashSet<String>()
     private val failures = HashMap<String, Long>()
 
-    var stamp by mutableIntStateOf(0)
+    var stamp by mutableStateOf(0)
         private set
 
     @Volatile
