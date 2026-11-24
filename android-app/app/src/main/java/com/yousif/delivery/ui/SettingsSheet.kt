@@ -108,7 +108,7 @@ fun SettingsSheet(
 
             Text(
                 text = if (pendingCount == 0) {
-                    "هەموو داتاکان لەگەڵ سێرڤەر یەکسانن ✓"
+                    "هیچ گۆڕانکارییەکی چاوەڕوان نییە"
                 } else {
                     "${TextUtils.toKurdish(pendingCount.toString())} گۆڕانکاری چاوەڕوانی ئینتەرنێتن"
                 },
