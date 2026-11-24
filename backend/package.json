@@ -1,0 +1,27 @@
+{
+  "name": "yousif-delivery-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Yousif Delivery - password protected customers API (Vercel Postgres)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vercel/postgres": "0.10.0",
+    "next": "15.5.29",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.18.12",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
