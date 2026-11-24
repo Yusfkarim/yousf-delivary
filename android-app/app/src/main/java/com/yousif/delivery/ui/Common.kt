@@ -74,17 +74,19 @@ fun SectionHeader(
     ) {
         Box(
             modifier = Modifier
-                .width(3.dp)
-                .height(15.dp)
+                .width(4.dp)
+                .height(17.dp)
                 .clip(RoundedCornerShape(50))
-                .background(colors.brand.copy(alpha = 0.75f)),
+                .background(
+                    Brush.verticalGradient(listOf(colors.brand, colors.brandDeep)),
+                ),
         )
-        Spacer(Modifier.width(7.dp))
+        Spacer(Modifier.width(8.dp))
         Text(
             text = text,
             color = colors.textPrimary,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.ExtraBold,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.Start,
         )

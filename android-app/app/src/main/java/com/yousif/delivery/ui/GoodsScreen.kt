@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,6 +39,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -107,18 +112,10 @@ fun GoodsScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PillButton(
-                        label = "زیادکردنی کاڵا",
-                        onClick = onAdd,
-                        icon = AppIcons.plus(),
-                        container = colors.brand,
-                        contentColor = colors.onBrand,
-                        modifier = Modifier.weight(1f),
-                        height = 50.dp,
-                        fontSize = 14,
-                    )
-                }
+                DashedAddButton(
+                    label = "زیادکردنی خانەی کاڵا",
+                    onClick = onAdd,
+                )
             }
 
             if (goods.isEmpty()) {
@@ -132,8 +129,9 @@ fun GoodsScreen(
                 }
             }
 
-            items(items = goods, key = { it.id }) { item ->
+            itemsIndexed(items = goods, key = { _, item -> item.id }) { index, item ->
                 GoodCard(
+                    index = index,
                     item = item,
                     onBump = { delta -> onBump(item, delta) },
                     onEdit = { onEdit(item) },
@@ -171,6 +169,7 @@ fun GoodsScreen(
 
 @Composable
 private fun GoodCard(
+    index: Int,
     item: GoodItem,
     onBump: (Int) -> Unit,
     onEdit: () -> Unit,
@@ -182,17 +181,16 @@ private fun GoodCard(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(15.dp))
-                    .background(colors.brandSoft)
-                    .border(1.dp, colors.brand.copy(alpha = 0.22f), RoundedCornerShape(15.dp)),
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(colors.brand),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    AppIcons.packageBox(),
-                    contentDescription = null,
-                    tint = colors.brandDeep,
-                    modifier = Modifier.size(21.dp),
+                Text(
+                    text = TextUtils.toKurdish((index + 1).toString()),
+                    color = colors.onBrand,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold,
                 )
             }
             Spacer(Modifier.width(11.dp))
@@ -514,6 +512,50 @@ private fun SelectChip(
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** The orange dashed «+ زیادکردنی خانەی کاڵا» bar of the reference design. */
+@Composable
+private fun DashedAddButton(
+    label: String,
+    onClick: () -> Unit,
+) {
+    val colors = LocalAppColors.current
+    val shape = RoundedCornerShape(20.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .drawBehind {
+                drawRoundRect(
+                    color = colors.brand.copy(alpha = 0.55f),
+                    style = Stroke(
+                        width = 1.6.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f), 0f),
+                    ),
+                    cornerRadius = CornerRadius(20.dp.toPx(), 20.dp.toPx()),
+                )
+            }
+            .background(colors.brand.copy(alpha = 0.06f))
+            .clickable(onClick = onClick)
+            .padding(vertical = 15.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            AppIcons.plus(),
+            contentDescription = null,
+            tint = colors.brand,
+            modifier = Modifier.size(17.dp),
+        )
+        Spacer(Modifier.width(7.dp))
+        Text(
+            text = label,
+            color = colors.brandDeep,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.ExtraBold,
         )
     }
 }

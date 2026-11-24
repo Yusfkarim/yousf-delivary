@@ -355,6 +355,10 @@ fun HomeScreen(viewModel: MainViewModel) {
             onExport = { viewModel.backupJson() },
             onExportName = { viewModel.backupFileName() },
             onImport = { json, done -> viewModel.importBackup(json, done) },
+            onDedupe = { done -> viewModel.dedupeRecords(done) },
+            customerCount = customers.size,
+            shopCount = shops.size,
+            goodCount = goods.size,
             onLock = {
                 showSettings = false
                 viewModel.lockApp()
@@ -641,7 +645,7 @@ private fun NavItem(
     ) {
         Box(
             modifier = Modifier
-                .size(32.dp)
+                .size(38.dp)
                 .clip(RoundedCornerShape(50))
                 .background(if (selected) colors.brandSoft else Color.Transparent),
             contentAlignment = Alignment.Center,
@@ -650,15 +654,15 @@ private fun NavItem(
                 icon,
                 contentDescription = label,
                 tint = if (selected) colors.brand else colors.textMuted,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(23.dp),
             )
         }
         Spacer(Modifier.height(2.dp))
         Text(
             text = label,
             color = if (selected) colors.brandDeep else colors.textMuted,
-            fontSize = 9.5.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            fontSize = 10.5.sp,
+            fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.SemiBold,
             maxLines = 1,
         )
     }

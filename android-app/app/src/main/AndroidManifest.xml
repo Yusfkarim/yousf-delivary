@@ -68,5 +68,17 @@
                 <data android:scheme="geo" />
             </intent-filter>
         </activity>
+
+        <!-- Lets «ناردن» hand the exported JSON to Drive / Telegram / WhatsApp
+             without ever writing to a public folder. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.backup"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

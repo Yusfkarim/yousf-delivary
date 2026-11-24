@@ -1,5 +1,7 @@
 package com.yousif.delivery.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,7 +11,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -18,7 +23,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yousif.delivery.data.Customer
@@ -30,8 +37,11 @@ import com.yousif.delivery.viewmodel.LocationFix
 
 /**
  * Live map of the whole delivery round: every customer and shop is pinned, the
- * driver is the blue dot, and tapping a pin opens a card with the name, whether
- * it is a customer or a shop, and «کردنەوە».
+ * driver is the blue dot, and tapping a pin opens a slim glass card with the
+ * name, whether it is a customer or a shop, and «کردنەوە».
+ *
+ * The map itself is the app's own [TileMap]: dragging, pinching and tapping all
+ * go through one gesture layer, so none of them can be blocked by another.
  */
 @Composable
 fun MapScreen(
@@ -67,34 +77,52 @@ fun MapScreen(
             points = pinned.map {
                 MapPoint(it.latitude, it.longitude, it.name, it.id, it.kind)
             },
+            selectedId = selected?.id,
             allowStyleSwitch = true,
             initialStyle = MapStyle.SATELLITE,
             onLocate = onLocate,
             onPinTap = { point ->
                 if (point.id.isNotBlank()) selectedId = point.id
             },
+            onTap = { _, _ -> selectedId = null },
         )
 
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, bottom = 112.dp),
+                .padding(start = 14.dp, end = 14.dp, bottom = 102.dp),
         ) {
             if (shown != null) {
                 val isShop = shown.isShop
-                GlassCard(padding = 14.dp) {
+                val distance = distanceOf(shown)
+                GlassCard(padding = 12.dp, radius = 24.dp) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        SmallAvatar(name = shown.name, size = 44)
-                        Spacer(Modifier.width(11.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(13.dp))
+                                .background(colors.brandSoft),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = TextUtils.initials(shown.name),
+                                color = colors.brandDeep,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                            )
+                        }
+                        Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
                             Text(
                                 text = shown.name,
                                 color = colors.textPrimary,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
-                            Spacer(Modifier.height(3.dp))
+                            Spacer(Modifier.height(4.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 GlassChip(
                                     text = if (isShop) "فرۆشگا" else "کڕیار",
@@ -104,20 +132,32 @@ fun MapScreen(
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 Text(
-                                    text = TextUtils.distance(distanceOf(shown)),
+                                    text = TextUtils.shortDistance(distance),
                                     color = colors.textSecondary,
-                                    fontSize = 12.sp,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold,
                                 )
                             }
                         }
-                        Text(
-                            text = TextUtils.toKurdish(pinned.size.toString()) + "\nشوێن",
-                            color = colors.textMuted,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
-                        )
+                        if (selected != null) {
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(colors.surfaceSunken)
+                                    .clickable { selectedId = null },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    AppIcons.close(),
+                                    contentDescription = "داخستن",
+                                    tint = colors.textMuted,
+                                    modifier = Modifier.size(15.dp),
+                                )
+                            }
+                        }
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         PillButton(
                             label = "کردنەوە",
@@ -126,8 +166,8 @@ fun MapScreen(
                             container = colors.brand,
                             contentColor = colors.onBrand,
                             modifier = Modifier.weight(1f),
-                            height = 48.dp,
-                            fontSize = 14,
+                            height = 44.dp,
+                            fontSize = 13,
                         )
                         PillButton(
                             label = "ڕێگا",
@@ -135,29 +175,21 @@ fun MapScreen(
                             icon = AppIcons.route(),
                             container = colors.brandSoft,
                             contentColor = colors.brandDeep,
-                            modifier = Modifier.width(116.dp),
-                            height = 48.dp,
+                            modifier = Modifier.width(104.dp),
+                            height = 44.dp,
                             fontSize = 13,
-                        )
-                    }
-                    if (selected == null) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = "نزیکترین شوێن · بۆ بینینی کەسێکی تر لە نەخشە پینەکەی دابگرە",
-                            color = colors.textMuted,
-                            fontSize = 10.5.sp,
                         )
                     }
                 }
             } else {
-                GlassCard(padding = 16.dp) {
+                GlassCard(padding = 14.dp) {
                     Text(
                         text = "هیچ شوێنێکی تۆمارکراو نییە",
                         color = colors.textSecondary,
-                        fontSize = 13.5.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(6.dp))
                     Text(
                         text = "لە کارتی کڕیار شوێن دیاری بکە بۆ ئەوەی لێرە دەربکەوێت.",
                         color = colors.textMuted,

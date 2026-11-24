@@ -47,4 +47,10 @@ object AppIcons {
     @Composable fun moon(): ImageVector = ImageVector.vectorResource(R.drawable.ic_moon)
     @Composable fun sun(): ImageVector = ImageVector.vectorResource(R.drawable.ic_sun)
     @Composable fun packageBox(): ImageVector = ImageVector.vectorResource(R.drawable.ic_package)
+
+    @Composable fun fit(): ImageVector = ImageVector.vectorResource(R.drawable.ic_fit)
+
+    @Composable fun download(): ImageVector = ImageVector.vectorResource(R.drawable.ic_download)
+
+    @Composable fun database(): ImageVector = ImageVector.vectorResource(R.drawable.ic_database)
 }
