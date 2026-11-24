@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.yousif.delivery.BuildConfig
 import com.yousif.delivery.ui.theme.AppBackground
 import com.yousif.delivery.ui.theme.AppDanger
 import com.yousif.delivery.ui.theme.AppSurface
@@ -56,6 +58,7 @@ import com.yousif.delivery.viewmodel.MainViewModel
 fun LockScreen(viewModel: MainViewModel) {
     val busy by viewModel.busy.collectAsStateWithLifecycle()
     val authError by viewModel.authError.collectAsStateWithLifecycle()
+    val diagnostics by viewModel.diagnostics.collectAsStateWithLifecycle()
     val baseUrl by viewModel.baseUrl.collectAsStateWithLifecycle()
 
     var password by remember { mutableStateOf("") }
@@ -162,15 +165,48 @@ fun LockScreen(viewModel: MainViewModel) {
 
             Spacer(Modifier.height(10.dp))
 
-            TextButton(onClick = { showServerDialog = true }) {
-                Text("ڕێکخستنی سێرڤەر", color = AppTextSecondary, fontSize = 12.sp)
+            Row(horizontalArrangement = Arrangement.Center) {
+                TextButton(onClick = { showServerDialog = true }) {
+                    Text("ڕێکخستنی سێرڤەر", color = AppTextSecondary, fontSize = 12.sp)
+                }
+                TextButton(onClick = { viewModel.diagnose() }, enabled = !busy) {
+                    Text("پشکنینی سێرڤەر", color = NeonCyan, fontSize = 12.sp)
+                }
             }
             Text(
                 text = baseUrl,
                 color = AppTextSecondary.copy(alpha = 0.55f),
                 fontSize = 10.sp,
             )
+            Text(
+                text = "وەشان " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")",
+                color = AppTextSecondary.copy(alpha = 0.45f),
+                fontSize = 9.5.sp,
+            )
         }
+    }
+
+    val report = diagnostics
+    if (report != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissDiagnostics() },
+            containerColor = AppSurface,
+            title = { Text("پشکنینی سێرڤەر", color = AppTextPrimary) },
+            text = {
+                Column {
+                    report.forEach { line ->
+                        Text(
+                            text = line,
+                            color = AppTextSecondary,
+                            fontSize = 11.sp,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.dismissDiagnostics() }) { Text("داخستن") }
+            },
+        )
     }
 
     if (showServerDialog) {

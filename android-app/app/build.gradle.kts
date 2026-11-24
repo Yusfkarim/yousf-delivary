@@ -24,13 +24,15 @@ android {
         applicationId = "com.yousif.delivery"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
 
         // Single place to point the app at the Vercel backend.
         buildConfigField("String", "API_BASE_URL", "\"https://yousf-delivery-api.vercel.app\"")
         buildConfigField("String", "VERSION_NAME", "\"$versionName\"")
         buildConfigField("int", "VERSION_CODE", "$versionCode")
+        // SHA-256("12345678rk"): lets the driver unlock while the server is unreachable.
+        buildConfigField("String", "PASSWORD_HASH", "\"0082b77e6709811900430cbfcf3ff2616bdc700ae1b0e7889081cbbb1831c0f4\"")
     }
 
     signingConfigs {
