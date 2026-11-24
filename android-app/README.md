@@ -15,6 +15,27 @@
 | شوێن | FusedLocationProviderClient + LocationManager fallback |
 | نهێنی | `EncryptedSharedPreferences` (MasterKey AES256-GCM) |
 
+## بنیاتنانی APK لە Vercel (بێ GitHub Actions)
+
+لەم ڕێپۆیەدا GitHub Actions ناچالاکە، بۆیە APK لە کۆنتەینەری build ی
+Vercel دروست دەکرێت:
+
+```bash
+# پرۆژەی Vercel: yousif-delivary-apk
+# Install:  echo apk-install-skip
+# Build:    node setup-apk.mjs
+# Output:   apk-out
+```
+
+`deploy/apk/build-apk.sh` خۆی JDK 17، Gradle 8.9 و Android SDK 35 (platform +
+build-tools) دادەبەزێنێت، پاشان `assembleRelease` دەکات و APK دەخاتە
+`apk-out/YousifDelivery-v<version>.apk`.
+
+- کلیلی امضا لە `android-app/release-keystore.b64` هەڵدەگیرێت بۆ ئەوەی
+  نوێکردنەوەکان بەسەرەوە دامەزرێن (وشەی نهێنی: `yousif12345`، alias: `yousif`).
+- بۆ وەشانێکی نوێ: `versionCode += 1` و `versionName` بگۆڕە، پاشان project
+  ەکە لە Vercel دووبارە deploy بکە.
+
 ## بنیاتنان
 
 ```bash

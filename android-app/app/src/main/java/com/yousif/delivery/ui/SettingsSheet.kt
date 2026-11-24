@@ -57,7 +57,7 @@ fun SettingsSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = AppSurface,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
     ) {
         Column(
             modifier = Modifier

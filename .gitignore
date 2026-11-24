@@ -52,3 +52,6 @@ android-app/captures/
 backend/.next/
 backend/node_modules/
 backend/next-env.d.ts
+
+# APK build output (built by deploy/apk/build-apk.sh)
+apk-out/
