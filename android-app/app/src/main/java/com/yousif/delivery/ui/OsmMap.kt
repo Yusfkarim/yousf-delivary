@@ -219,8 +219,8 @@ private class MapState {
 private fun MapButton(
     icon: ImageVector,
     dark: Boolean,
-    onClick: () -> Unit,
     tint: Color? = null,
+    onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(14.dp)
     Box(
