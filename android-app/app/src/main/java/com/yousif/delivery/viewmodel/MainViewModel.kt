@@ -324,6 +324,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Saves a whole order sheet — several rows at once. */
+    fun saveGoods(items: List<GoodItem>, onDone: () -> Unit = {}) {
+        if (items.isEmpty()) return
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val entities = items
+                .filter { it.title.isNotBlank() }
+                .map { item ->
+                    item.copy(
+                        title = item.title.trim(),
+                        quantity = item.quantity.coerceAtLeast(1),
+                        updatedAt = now,
+                        createdAt = if (item.createdAt > 0) item.createdAt else now,
+                    ).toEntity()
+                }
+            if (entities.isNotEmpty()) {
+                withContext(Dispatchers.IO) { goodDao.upsertAll(entities) }
+            }
+            onDone()
+        }
+    }
+
     fun deleteGood(item: GoodItem) {
         viewModelScope.launch { goodDao.delete(item.id) }
     }

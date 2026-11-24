@@ -325,8 +325,8 @@ fun HomeScreen(viewModel: MainViewModel) {
                 showGoodSheet = false
                 editingGood = null
             },
-            onSave = { item ->
-                viewModel.saveGood(item) {
+            onSave = { items ->
+                viewModel.saveGoods(items) {
                     showGoodSheet = false
                     editingGood = null
                 }
