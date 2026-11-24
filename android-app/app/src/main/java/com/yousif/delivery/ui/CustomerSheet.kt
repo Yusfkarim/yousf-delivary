@@ -245,7 +245,7 @@ fun CustomerSheet(
                         )
                         Text(
                             text = if (latitude != null && longitude != null) {
-                                TextUtils.coordinates(latitude ?: 0.0, longitude ?: 0.0)
+                                TextUtils.coordinatesDisplay(latitude ?: 0.0, longitude ?: 0.0)
                             } else {
                                 "لە نەخشە یان بە GPS دیاری بکە"
                             },
@@ -289,6 +289,14 @@ fun CustomerSheet(
                         fontSize = 13,
                     )
                 }
+                Spacer(Modifier.height(7.dp))
+                Text(
+                    text = "«شوێنی ئێستام» = GPS ی مۆبایلەکەت · «لینکی نەخشە» = شوێنێک لە Google Maps",
+                    color = colors.textMuted,
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp,
+                    modifier = Modifier.padding(horizontal = 2.dp),
+                )
                 Spacer(Modifier.height(10.dp))
                 PillButton(
                     label = "دیاریکردن لەسەر نەخشە",
