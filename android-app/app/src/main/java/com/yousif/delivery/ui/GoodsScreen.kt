@@ -12,9 +12,13 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -50,6 +54,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -262,25 +267,63 @@ private fun GoodCard(
     }
 }
 
-/** Add / edit one item. */
+/**
+ * «داواکاریی نوێ» — one sheet for a whole order: pick the person (or «بێ کەس»),
+ * write as many goods rows as you need, and save them all at once.
+ *
+ * Editing an existing row opens the same sheet with that one row filled in.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GoodSheet(
     initial: GoodItem?,
     customers: List<Customer>,
     onDismiss: () -> Unit,
-    onSave: (GoodItem) -> Unit,
+    onSave: (List<GoodItem>) -> Unit,
 ) {
     val colors = LocalAppColors.current
     val focus = LocalFocusManager.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    var title by remember { mutableStateOf(initial?.title.orEmpty()) }
-    var quantity by remember { mutableStateOf(initial?.quantity?.coerceAtLeast(1) ?: 1) }
+    var rows by remember {
+        mutableStateOf(
+            listOf(
+                GoodDraft(
+                    id = initial?.id ?: UUID.randomUUID().toString(),
+                    title = initial?.title.orEmpty(),
+                    quantity = (initial?.quantity ?: 1).coerceAtLeast(1),
+                    createdAt = initial?.createdAt ?: 0L,
+                ),
+            ),
+        )
+    }
     var note by remember { mutableStateOf(initial?.note.orEmpty()) }
+    var query by remember { mutableStateOf("") }
     var customerId by remember { mutableStateOf(initial?.customerId) }
     var customerName by remember { mutableStateOf(initial?.customerName) }
     var error by remember { mutableStateOf<String?>(null) }
+
+    fun update(index: Int, change: (GoodDraft) -> GoodDraft) {
+        val copy = rows.toMutableList()
+        if (index in copy.indices) copy[index] = change(copy[index])
+        rows = copy
+    }
+
+    val digits = query.filter(Char::isDigit)
+    val people = remember(query, customers) {
+        if (query.isBlank()) {
+            customers.take(30)
+        } else {
+            customers
+                .filter { person ->
+                    person.name.contains(query.trim(), ignoreCase = true) ||
+                        (digits.isNotEmpty() && person.allPhones.any { number ->
+                            number.filter(Char::isDigit).contains(digits)
+                        })
+                }
+                .take(30)
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -292,13 +335,30 @@ fun GoodSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 18.dp, end = 18.dp, bottom = 22.dp),
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 16.dp, end = 16.dp, bottom = 22.dp),
         ) {
+            /* -------------------------------------------------------- header */
             Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = if (initial == null) "داواکاریی نوێ" else "دەستکاری کاڵا",
+                        color = colors.textPrimary,
+                        fontSize = 21.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = "کڕیار هەڵبژێرە و کاڵاکان خێرا بنووسە",
+                        color = colors.textSecondary,
+                        fontSize = 12.sp,
+                    )
+                }
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(14.dp))
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(16.dp))
                         .background(colors.brandSoft),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -306,87 +366,61 @@ fun GoodSheet(
                         AppIcons.packageBox(),
                         contentDescription = null,
                         tint = colors.brandDeep,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-                Spacer(Modifier.width(11.dp))
-                Column {
-                    Text(
-                        text = if (initial == null) "کاڵای نوێ" else "دەستکاری کاڵا",
-                        color = colors.textPrimary,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = "ناو، ژمارە و ئەگەر ویستت کەسەکە",
-                        color = colors.textSecondary,
-                        fontSize = 11.5.sp,
+                        modifier = Modifier.size(24.dp),
                     )
                 }
             }
 
             Spacer(Modifier.height(16.dp))
 
-            Text("کاڵا", color = colors.textPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(6.dp))
+            /* ------------------------------------------------------- customer */
+            Text(
+                text = "کڕیار",
+                color = colors.textPrimary,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.ExtraBold,
+            )
+            Spacer(Modifier.height(8.dp))
             OutlinedTextField(
-                value = title,
-                onValueChange = {
-                    title = it
-                    error = null
-                },
+                value = query,
+                onValueChange = { query = it },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = {
-                    Text("بۆ نموونە: ٥ کارتۆن ئاو", fontSize = 13.sp, color = colors.textMuted)
-                },
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                textStyle = TextStyle(fontSize = 14.5.sp, color = colors.textPrimary, fontWeight = FontWeight.Medium),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                placeholder = {
+                    Text("گەڕان بە ناو یان ژمارە…", fontSize = 13.sp, color = colors.textMuted)
+                },
+                leadingIcon = {
+                    Icon(
+                        AppIcons.search(),
+                        contentDescription = null,
+                        tint = colors.textSecondary,
+                        modifier = Modifier.size(19.dp),
+                    )
+                },
+                trailingIcon = {
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = { query = "" }, modifier = Modifier.size(38.dp)) {
+                            Icon(
+                                AppIcons.close(),
+                                contentDescription = null,
+                                tint = colors.textMuted,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                    }
+                },
+                shape = RoundedCornerShape(18.dp),
+                textStyle = TextStyle(fontSize = 13.5.sp, color = colors.textPrimary),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = colors.surfaceSunken,
                     unfocusedContainerColor = colors.surfaceSunken,
-                    focusedBorderColor = colors.brand.copy(alpha = 0.65f),
+                    focusedBorderColor = colors.brand.copy(alpha = 0.55f),
                     unfocusedBorderColor = colors.border,
                     cursorColor = colors.brand,
                 ),
             )
 
-            Spacer(Modifier.height(16.dp))
-
-            Text("ژمارە", color = colors.textPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(colors.surfaceSunken)
-                    .border(1.dp, colors.border, RoundedCornerShape(18.dp))
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "بڕی کاڵا",
-                    color = colors.textSecondary,
-                    fontSize = 13.sp,
-                    modifier = Modifier.weight(1f),
-                )
-                GlassStepButton(icon = AppIcons.minus(), onClick = { quantity = (quantity - 1).coerceAtLeast(1) })
-                Box(Modifier.width(50.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = TextUtils.toKurdish(quantity.toString()),
-                        color = colors.textPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-                GlassStepButton(icon = AppIcons.plus(), onClick = { quantity = (quantity + 1).coerceAtMost(9999) })
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            Text("کەس", color = colors.textPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
                     SelectChip(
@@ -398,7 +432,7 @@ fun GoodSheet(
                         },
                     )
                 }
-                items(items = customers, key = { it.id }) { person ->
+                items(items = people, key = { it.id }) { person ->
                     SelectChip(
                         label = person.name,
                         selected = customerId == person.id,
@@ -410,24 +444,95 @@ fun GoodSheet(
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            /* ---------------------------------------------------------- goods */
+            Spacer(Modifier.height(18.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "کاڵاکان",
+                    color = colors.textPrimary,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+                Spacer(Modifier.weight(1f))
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(colors.brandSoft)
+                        .padding(horizontal = 11.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = TextUtils.toKurdish(rows.size.toString()) + " کاڵا",
+                        color = colors.brandDeep,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                }
+            }
 
-            Text("تێبینی", color = colors.textPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(9.dp))
+
+            rows.forEachIndexed { index, row ->
+                if (index > 0) Spacer(Modifier.height(9.dp))
+                GoodRow(
+                    index = index,
+                    title = row.title,
+                    quantity = row.quantity,
+                    onTitle = { value ->
+                        update(index) { it.copy(title = value) }
+                        error = null
+                    },
+                    onQuantity = { delta ->
+                        update(index) {
+                            it.copy(quantity = (it.quantity + delta).coerceIn(1, 9999))
+                        }
+                    },
+                    onRemove = {
+                        if (rows.size > 1) {
+                            rows = rows.toMutableList().also { it.removeAt(index) }
+                        } else {
+                            update(index) { it.copy(title = "") }
+                        }
+                    },
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+            DashedAddButton(
+                label = "زیادکردنی خانەی کاڵا",
+                onClick = {
+                    rows = rows + GoodDraft(
+                        id = UUID.randomUUID().toString(),
+                        title = "",
+                        quantity = 1,
+                        createdAt = 0L,
+                    )
+                },
+            )
+
+            /* ----------------------------------------------------------- note */
+            Spacer(Modifier.height(18.dp))
+            Text(
+                text = "تێبینی",
+                color = colors.textPrimary,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.ExtraBold,
+            )
+            Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 value = note,
                 onValueChange = { note = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(84.dp),
+                    .height(96.dp),
                 placeholder = { Text("ئارەزوومەندانە…", fontSize = 13.sp, color = colors.textMuted) },
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
                 textStyle = TextStyle(fontSize = 13.5.sp, color = colors.textPrimary),
-                maxLines = 3,
+                maxLines = 4,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = colors.surfaceSunken,
                     unfocusedContainerColor = colors.surfaceSunken,
-                    focusedBorderColor = colors.brand.copy(alpha = 0.65f),
+                    focusedBorderColor = colors.brand.copy(alpha = 0.55f),
                     unfocusedBorderColor = colors.border,
                     cursorColor = colors.brand,
                 ),
@@ -435,33 +540,46 @@ fun GoodSheet(
 
             error?.let { message ->
                 Spacer(Modifier.height(8.dp))
-                Text(message, color = colors.danger, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                Text(
+                    text = message,
+                    color = colors.danger,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                )
             }
 
+            /* --------------------------------------------------------- save */
             Spacer(Modifier.height(18.dp))
-
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PillButton(
-                    label = if (initial == null) "زیادکردن" else "پاشەکەوتکردن",
+                    label = "پاشەکەوتکردن",
                     onClick = {
                         focus.clearFocus()
-                        if (title.isBlank()) error = "ناوی کاڵا پێویستە" else onSave(
-                            GoodItem(
-                                id = initial?.id ?: UUID.randomUUID().toString(),
-                                title = title.trim(),
-                                quantity = quantity,
-                                note = note.trim(),
-                                customerId = customerId,
-                                customerName = customerName,
-                                createdAt = initial?.createdAt ?: System.currentTimeMillis(),
-                                updatedAt = System.currentTimeMillis(),
-                            ),
-                        )
+                        val cleaned = rows.filter { it.title.isNotBlank() }
+                        if (cleaned.isEmpty()) {
+                            error = "لانیکەم ناوێکی کاڵا بنووسە"
+                        } else {
+                            val now = System.currentTimeMillis()
+                            onSave(
+                                cleaned.map { draft ->
+                                    GoodItem(
+                                        id = draft.id,
+                                        title = draft.title.trim(),
+                                        quantity = draft.quantity.coerceAtLeast(1),
+                                        note = note.trim(),
+                                        customerId = customerId,
+                                        customerName = customerName,
+                                        createdAt = if (draft.createdAt > 0) draft.createdAt else now,
+                                        updatedAt = now,
+                                    )
+                                },
+                            )
+                        }
                     },
                     icon = AppIcons.check(),
                     container = colors.brand,
                     contentColor = colors.onBrand,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1.35f),
                     height = 52.dp,
                     fontSize = 14,
                 )
@@ -476,6 +594,125 @@ fun GoodSheet(
                 )
             }
         }
+    }
+}
+
+/** One line of the order: number, the name you type, the quantity and a remove cross. */
+@Composable
+private fun GoodRow(
+    index: Int,
+    title: String,
+    quantity: Int,
+    onTitle: (String) -> Unit,
+    onQuantity: (Int) -> Unit,
+    onRemove: () -> Unit,
+) {
+    val colors = LocalAppColors.current
+    val shape = RoundedCornerShape(18.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(colors.surfaceSunken)
+            .border(1.dp, colors.border, shape)
+            .padding(horizontal = 9.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clip(RoundedCornerShape(50))
+                .background(colors.brand),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = TextUtils.toKurdish((index + 1).toString()),
+                color = colors.onBrand,
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.ExtraBold,
+            )
+        }
+        Spacer(Modifier.width(9.dp))
+        BasicTextField(
+            value = title,
+            onValueChange = onTitle,
+            modifier = Modifier.weight(1f),
+            singleLine = true,
+            textStyle = TextStyle(
+                fontSize = 14.sp,
+                color = colors.textPrimary,
+                fontWeight = FontWeight.SemiBold,
+            ),
+            cursorBrush = SolidColor(colors.brand),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+            decorationBox = { inner ->
+                Box(contentAlignment = Alignment.CenterStart) {
+                    if (title.isEmpty()) {
+                        Text(
+                            text = "ناوی کاڵا بنووسە…",
+                            color = colors.textMuted,
+                            fontSize = 13.sp,
+                        )
+                    }
+                    inner()
+                }
+            },
+        )
+        Spacer(Modifier.width(8.dp))
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .background(colors.surface)
+                .border(1.dp, colors.border, RoundedCornerShape(50))
+                .padding(3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            StepCircle(AppIcons.minus()) { onQuantity(-1) }
+            Box(Modifier.width(30.dp), contentAlignment = Alignment.Center) {
+                Text(
+                    text = TextUtils.toKurdish(quantity.toString()),
+                    color = colors.textPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+            }
+            StepCircle(AppIcons.plus()) { onQuantity(1) }
+        }
+        Spacer(Modifier.width(2.dp))
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clip(RoundedCornerShape(50))
+                .clickable(onClick = onRemove),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                AppIcons.close(),
+                contentDescription = "سڕینەوەی خانە",
+                tint = colors.textMuted,
+                modifier = Modifier.size(15.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun StepCircle(icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+    val colors = LocalAppColors.current
+    Box(
+        modifier = Modifier
+            .size(28.dp)
+            .clip(RoundedCornerShape(50))
+            .background(colors.brandSoft)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = colors.brandDeep,
+            modifier = Modifier.size(14.dp),
+        )
     }
 }
 
@@ -559,3 +796,11 @@ private fun DashedAddButton(
         )
     }
 }
+
+/** One editable line of the order sheet. */
+private data class GoodDraft(
+    val id: String,
+    val title: String,
+    val quantity: Int,
+    val createdAt: Long,
+)
