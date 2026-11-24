@@ -7,14 +7,17 @@ import android.net.NetworkCapabilities
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.yousif.delivery.AppGraph
+import com.yousif.delivery.BuildConfig
 import com.yousif.delivery.data.Customer
 import com.yousif.delivery.data.CustomerDraft
 import com.yousif.delivery.data.PushOutcome
 import com.yousif.delivery.data.SyncStatus
 import com.yousif.delivery.data.remote.ApiClient
 import com.yousif.delivery.location.LocationProvider
+import com.yousif.delivery.util.Diagnostics
 import com.yousif.delivery.util.GeoUtils
 import com.yousif.delivery.util.PhoneUtils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -26,6 +29,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.security.MessageDigest
 import java.util.UUID
 
 data class LocationFix(val latitude: Double, val longitude: Double)
@@ -64,6 +69,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _authError = MutableStateFlow<String?>(null)
     val authError: StateFlow<String?> = _authError.asStateFlow()
+
+    private val _diagnostics = MutableStateFlow<List<String>?>(null)
+    val diagnostics: StateFlow<List<String>?> = _diagnostics.asStateFlow()
 
     val customers: StateFlow<List<Customer>> = repository.customers
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -138,6 +146,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 result.ok -> fail("وشەی نهێنی هەڵەیە")
                 result.code == ApiClient.CODE_OFFLINE && session.password == candidate ->
                     enterApp(candidate, offline = true)
+                matchesLocalPassword(candidate) -> enterApp(candidate, offline = true)
                 else -> fail(explain(result.code))
             }
             _busy.value = false
@@ -146,6 +155,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearAuthError() {
         _authError.value = null
+    }
+
+    fun dismissDiagnostics() {
+        _diagnostics.value = null
+    }
+
+    /** Runs the DNS / TCP / HTTP checks and shows the result on the lock screen. */
+    fun diagnose() {
+        viewModelScope.launch {
+            _busy.value = true
+            _diagnostics.value = withContext(Dispatchers.IO) { Diagnostics.run(_baseUrl.value) }
+            _busy.value = false
+        }
+    }
+
+    private fun matchesLocalPassword(candidate: String): Boolean {
+        val digest = MessageDigest.getInstance("SHA-256").digest(candidate.toByteArray())
+        val hex = digest.joinToString("") { byte -> "%02x".format(byte) }
+        return hex.equals(BuildConfig.PASSWORD_HASH, ignoreCase = true)
     }
 
     private fun fail(message: String) {
@@ -176,7 +204,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         session.password = password
         session.loggedIn = true
         _loggedIn.value = true
-        emit(if (offline) "دۆخی ئۆفلاین — داتای ناوخۆیی بەردەستە" else "بەخێربێیت بۆ یوسف دلیڤەری")
+        emit(
+            if (offline) {
+                "دۆخی ئۆفلاین — سێرڤەر نەگەیشت، داتا لەسەر مۆبایل هەڵدەگیرێت"
+            } else {
+                "بەخێربێیت بۆ یوسف دلیڤەری"
+            },
+        )
         viewModelScope.launch { runSync(announce = false) }
     }
 
