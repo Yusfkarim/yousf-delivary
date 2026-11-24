@@ -70,6 +70,10 @@ class ApiClient {
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
+        // Vercel Deployment Protection answers with a 302 to vercel.com. Follow it
+        // ourselves so the app can tell "protected" apart from "offline".
+        .followRedirects(false)
+        .followSslRedirects(false)
         .build()
 
     private val gson = Gson()
@@ -131,11 +135,22 @@ class ApiClient {
         return try {
             client.newCall(request).execute().use { response ->
                 val text = response.body?.string().orEmpty()
-                if (response.isSuccessful) {
-                    ApiResponse(ok = true, code = response.code, value = text)
+                val trimmed = text.trimStart()
+                val location = response.header("Location").orEmpty()
+
+                // Vercel sends 302/307 to vercel.com/sso when Deployment Protection is on.
+                if (response.code in 300..399 || location.contains("vercel.com/sso", ignoreCase = true)) {
+                    ApiResponse.failure(CODE_PROTECTED, location)
+                } else if (response.isSuccessful) {
+                    if (trimmed.isEmpty() || trimmed.startsWith("{") || trimmed.startsWith("[")) {
+                        ApiResponse(ok = true, code = response.code, value = text.ifBlank { "{}" })
+                    } else {
+                        // 200 with an HTML login page = protected (or a wrong host).
+                        ApiResponse.failure(CODE_PROTECTED, "non-json response")
+                    }
                 } else {
                     val parsed = runCatching { gson.fromJson(text, ErrorResponse::class.java) }.getOrNull()
-                    ApiResponse.failure(response.code, parsed?.message ?: parsed?.error)
+                    ApiResponse.failure(response.code, parsed?.message ?: parsed?.error ?: "HTTP ${response.code}")
                 }
             }
         } catch (error: IOException) {
@@ -143,6 +158,14 @@ class ApiClient {
         } catch (error: Exception) {
             ApiResponse.failure(0, error.message)
         }
+    }
+
+    companion object {
+        /** The request never reached the server (no network / DNS / TLS). */
+        const val CODE_OFFLINE = 0
+
+        /** The server answered with Vercel's SSO redirect or an HTML login page. */
+        const val CODE_PROTECTED = -1
     }
 
     private inline fun <reified T> parse(text: String?): T? {
