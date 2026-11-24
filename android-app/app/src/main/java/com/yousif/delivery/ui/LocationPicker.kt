@@ -41,6 +41,7 @@ import com.yousif.delivery.util.TextUtils
 fun LocationPickerDialog(
     initial: MapPoint?,
     me: MapPoint?,
+    onRequestGps: ((Double, Double) -> Unit) -> Unit = {},
     onDismiss: () -> Unit,
     onConfirm: (Double, Double) -> Unit,
 ) {
@@ -75,7 +76,7 @@ fun LocationPickerDialog(
                 Text(
                     text = "دیاریکردنی شوێن",
                     color = colors.textPrimary,
-                    fontSize = 16.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                 )
                 Spacer(Modifier.weight(1f))
@@ -113,18 +114,33 @@ fun LocationPickerDialog(
             ) {
                 Column(Modifier.fillMaxWidth()) {
                     Text(
-                        text = "لە نەخشە دەست بنێ بۆ هەڵبژاردنی شوێن",
+                        text = "لە نەخشە دەست بنێ بۆ هەڵبژاردنی شوێن — یان دوگمەی شوێنی من دابگرە",
                         color = colors.textSecondary,
-                        fontSize = 12.sp,
+                        fontSize = 12.5.sp,
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = picked?.let { TextUtils.coordinates(it.latitude, it.longitude) } ?: "—",
                         color = colors.textPrimary,
-                        fontSize = 13.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                        PillButton(
+                            label = "شوێنی ئێستام",
+                            onClick = {
+                                onRequestGps { lat, lng -> picked = MapPoint(lat, lng) }
+                            },
+                            icon = AppIcons.locate(),
+                            container = colors.brandSoft,
+                            contentColor = colors.brandDeep,
+                            modifier = Modifier.weight(1f),
+                            height = 46.dp,
+                            fontSize = 13,
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
                         PillButton(
                             label = "پاشەکەوتکردن",

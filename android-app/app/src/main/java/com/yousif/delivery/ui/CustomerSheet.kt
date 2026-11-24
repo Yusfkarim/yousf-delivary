@@ -30,10 +30,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,12 +48,15 @@ import androidx.compose.ui.unit.sp
 import com.yousif.delivery.data.Customer
 import com.yousif.delivery.data.CustomerDraft
 import com.yousif.delivery.data.ExtraPhone
+import com.yousif.delivery.data.Kinds
 import com.yousif.delivery.ui.icons.AppIcons
 import com.yousif.delivery.ui.theme.LocalAppColors
 import com.yousif.delivery.util.IntentUtils
 import com.yousif.delivery.util.MapLinkParser
+import com.yousif.delivery.util.MapLinkResolver
 import com.yousif.delivery.util.TextUtils
 import com.yousif.delivery.viewmodel.LocationFix
+import kotlinx.coroutines.launch
 
 /** Mutable row state for the "extra numbers" editor. */
 class ExtraPhoneEditor(
@@ -68,6 +73,8 @@ class ExtraPhoneEditor(
 @Composable
 fun CustomerSheet(
     initial: Customer?,
+    kind: String = Kinds.CUSTOMER,
+    prefill: MapPoint? = null,
     myLocation: LocationFix?,
     onRequestGps: ((Double, Double) -> Unit) -> Unit,
     onDismiss: () -> Unit,
@@ -76,16 +83,25 @@ fun CustomerSheet(
     val colors = LocalAppColors.current
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+    val isShop = kind == Kinds.SHOP
+    val noun = if (isShop) "فرۆشگا" else "کڕیار"
 
     var name by remember { mutableStateOf(initial?.name ?: "") }
     var primaryPhone by remember { mutableStateOf(initial?.primaryPhone ?: "") }
     var hasWhatsapp by remember { mutableStateOf(initial?.hasWhatsapp ?: false) }
     var hasViber by remember { mutableStateOf(initial?.hasViber ?: false) }
     var addressNote by remember { mutableStateOf(initial?.addressNote ?: "") }
-    var latitude by remember { mutableStateOf(initial?.latitude?.takeIf { it != 0.0 }) }
-    var longitude by remember { mutableStateOf(initial?.longitude?.takeIf { it != 0.0 }) }
+    var latitude by remember {
+        mutableStateOf(initial?.latitude?.takeIf { it != 0.0 } ?: prefill?.latitude)
+    }
+    var longitude by remember {
+        mutableStateOf(initial?.longitude?.takeIf { it != 0.0 } ?: prefill?.longitude)
+    }
     var pasteField by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
+    var linkStatus by remember { mutableStateOf<String?>(null) }
+    var resolving by remember { mutableStateOf(false) }
     var showPicker by remember { mutableStateOf(false) }
 
     val extras = remember {
@@ -95,8 +111,8 @@ fun CustomerSheet(
     }
 
     val initialCenter = remember {
-        val lat = initial?.latitude?.takeIf { it != 0.0 }
-        val lng = initial?.longitude?.takeIf { it != 0.0 }
+        val lat = initial?.latitude?.takeIf { it != 0.0 } ?: prefill?.latitude
+        val lng = initial?.longitude?.takeIf { it != 0.0 } ?: prefill?.longitude
         when {
             lat != null && lng != null -> MapPoint(lat, lng)
             myLocation != null -> MapPoint(myLocation.latitude, myLocation.longitude)
@@ -122,6 +138,31 @@ fun CustomerSheet(
         }
     }
 
+    // A pasted Google Maps link (short links included) resolves itself, so the
+    // driver never has to press anything after "Paste".
+    LaunchedEffect(pasteField) {
+        val text = pasteField.trim()
+        if (text.isEmpty() || !MapLinkResolver.hasLink(text)) return@LaunchedEffect
+        if (MapLinkParser.parse(text) != null) {
+            val parsed = MapLinkParser.parse(text)
+            if (parsed != null) {
+                applyCoordinates(parsed.first, parsed.second)
+                linkStatus = "شوێن لە لینکەکە دۆزرایەوە ✓"
+                return@LaunchedEffect
+            }
+        }
+        resolving = true
+        linkStatus = "لینک دەخوێندرێتەوە…"
+        val resolved = MapLinkResolver.resolve(text)
+        resolving = false
+        if (resolved != null) {
+            applyCoordinates(resolved.first, resolved.second)
+            linkStatus = "شوێن لە لینکەکە دۆزرایەوە ✓"
+        } else {
+            linkStatus = "نەتوانرا شوێن لەم لینکە بدۆزرێتەوە — بە نەخشە دیاری بکە"
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -140,13 +181,18 @@ fun CustomerSheet(
                 Spacer(Modifier.width(10.dp))
                 Column {
                     Text(
-                        text = if (initial == null) "زیادکردنی کڕیاری نوێ" else "دەستکاری کڕیار",
+                        text = when {
+                            initial != null && isShop -> "دەستکاری فرۆشگا"
+                            initial != null -> "دەستکاری کڕیار"
+                            isShop -> "زیادکردنی فرۆشگای نوێ"
+                            else -> "زیادکردنی کڕیاری نوێ"
+                        },
                         color = colors.textPrimary,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = "ناو، ژمارە و شوێن پێویستن",
+                        text = "ناو، ژمارە و شوێن — لینکی ماپیش بەخۆی دەخوێندرێتەوە",
                         color = colors.textSecondary,
                         fontSize = 11.5.sp,
                     )
@@ -159,7 +205,7 @@ fun CustomerSheet(
                 SheetField(
                     value = name,
                     onValueChange = { name = it },
-                    placeholder = "ناوی کڕیار",
+                    placeholder = if (isShop) "ناوی فرۆشگا" else "ناوی کڕیار",
                     icon = AppIcons.user(),
                 )
                 Spacer(Modifier.height(10.dp))
@@ -201,7 +247,7 @@ fun CustomerSheet(
                 Text("زیادکردنی ژمارەی تر", color = colors.brandDeep, fontSize = 12.sp)
             }
 
-            SectionHeader(text = "شوێنی کڕیار")
+            SectionHeader(text = if (isShop) "شوێنی فرۆشگا" else "شوێنی کڕیار")
 
             AppCard(padding = 12.dp) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -258,6 +304,7 @@ fun CustomerSheet(
                         initialCenter
                     },
                     me = myLocation?.let { MapPoint(it.latitude, it.longitude, "شوێنی من") },
+                    onRequestGps = { onLocate -> onRequestGps { lat, lng -> onLocate(lat, lng) } },
                     onDismiss = { showPicker = false },
                     onConfirm = { lat, lng ->
                         applyCoordinates(lat, lng)
@@ -307,13 +354,26 @@ fun CustomerSheet(
                     value = pasteField,
                     onValueChange = { pasteField = it },
                     placeholder = "لینکی گووگڵ ماپ یان کۆردینات",
-                    icon = AppIcons.map(),
+                    icon = if (isShop) AppIcons.store() else AppIcons.map(),
                     trailing = {
                         TextButton(onClick = { parsePaste() }) {
-                            Text("جێبەجێکردن", fontSize = 11.sp, color = colors.brandDeep)
+                            Text(
+                                text = if (resolving) "…" else "جێبەجێکردن",
+                                fontSize = 11.5.sp,
+                                color = colors.brandDeep,
+                            )
                         }
                     },
                 )
+                linkStatus?.let { status ->
+                    Text(
+                        text = status,
+                        color = if (status.contains("✓")) colors.successDeep else colors.textMuted,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(top = 6.dp, start = 4.dp),
+                    )
+                }
                 Spacer(Modifier.height(10.dp))
                 SheetField(
                     value = addressNote,
@@ -339,10 +399,10 @@ fun CustomerSheet(
             Spacer(Modifier.height(16.dp))
 
             PillButton(
-                label = if (initial == null) "زیادکردنی کڕیار" else "پاشەکەوتکردنی گۆڕانکاری",
+                label = if (initial == null) "زیادکردنی $noun" else "پاشەکەوتکردنی گۆڕانکاری",
                 onClick = {
                     when {
-                        name.isBlank() -> error = "ناوی کڕیار پێویستە"
+                        name.isBlank() -> error = "ناوی $noun پێویستە"
                         primaryPhone.isBlank() -> error = "ژمارەی سەرەکی پێویستە"
                         latitude == null || longitude == null -> error = "شوێن دیاری بکە (GPS یان نەخشە)"
                         else -> {
@@ -350,6 +410,7 @@ fun CustomerSheet(
                             onSave(
                                 CustomerDraft(
                                     id = initial?.id,
+                                    kind = kind,
                                     name = name,
                                     primaryPhone = primaryPhone,
                                     hasWhatsapp = hasWhatsapp,
@@ -390,13 +451,13 @@ private fun SheetField(
         onValueChange = onValueChange,
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
-        placeholder = { Text(placeholder, fontSize = 12.5.sp, color = colors.textMuted) },
+        placeholder = { Text(placeholder, fontSize = 13.sp, color = colors.textMuted) },
         leadingIcon = {
-            Icon(icon, contentDescription = null, tint = colors.textSecondary, modifier = Modifier.size(17.dp))
+            Icon(icon, contentDescription = null, tint = colors.textSecondary, modifier = Modifier.size(19.dp))
         },
         trailingIcon = trailing,
         shape = RoundedCornerShape(16.dp),
-        textStyle = TextStyle(fontSize = 13.5.sp, color = colors.textPrimary, fontWeight = FontWeight.Medium),
+        textStyle = TextStyle(fontSize = 14.5.sp, color = colors.textPrimary, fontWeight = FontWeight.Medium),
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = colors.surfaceSunken,
             unfocusedContainerColor = colors.surfaceSunken,

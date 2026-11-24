@@ -1,5 +1,8 @@
 package com.yousif.delivery.ui
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,9 +26,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -34,6 +39,9 @@ import com.yousif.delivery.BuildConfig
 import com.yousif.delivery.ui.icons.AppIcons
 import com.yousif.delivery.ui.theme.LocalAppColors
 import com.yousif.delivery.util.TextUtils
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,12 +53,62 @@ fun SettingsSheet(
     onSaveUrl: (String) -> Unit,
     onTest: () -> Unit,
     onSync: () -> Unit,
+    onExport: suspend () -> String,
+    onExportName: () -> String,
+    onImport: (String, (Int) -> Unit) -> Unit,
     onLock: () -> Unit,
     onThemeMode: (Int) -> Unit,
 ) {
     val colors = LocalAppColors.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var url by remember { mutableStateOf(baseUrl) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val saveFile = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val json = onExport()
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openOutputStream(uri)?.use { stream ->
+                        stream.write(json.toByteArray())
+                    } ?: error("no stream")
+                }.isSuccess
+            }
+            Toast.makeText(
+                context,
+                if (ok) "داتاکە هەناردە کرا ✓" else "هەناردەکردن سەرکەوتوو نەبوو",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+
+    val openFile = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val text = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                }.getOrNull()
+            }
+            if (text.isNullOrBlank()) {
+                Toast.makeText(context, "فایلەکە نەخوێندرایەوە", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            onImport(text) { count ->
+                Toast.makeText(
+                    context,
+                    if (count > 0) "$count تۆمار هاوردە کرا ✓" else "هیچ تۆمارێک هاوردە نەکرا",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -162,6 +220,39 @@ fun SettingsSheet(
                     contentColor = colors.brandDeep,
                     modifier = Modifier.fillMaxWidth(),
                 )
+            }
+
+            SectionHeader(text = "پاڵپشت (Export / Import)")
+
+            AppCard(padding = 14.dp) {
+                Text(
+                    text = "هەموو کڕیار و فرۆشگاکان لە فایلێکی JSON پاشەکەوت دەکرێن — دەتوانی لە Google Drive یان تێلێگرام هەڵیبگریت و لە مۆبایلێکی تر بیگەڕێنیتەوە.",
+                    color = colors.textSecondary,
+                    fontSize = 12.5.sp,
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PillButton(
+                        label = "هەناردەکردن",
+                        onClick = { saveFile.launch(onExportName()) },
+                        icon = AppIcons.share(),
+                        container = colors.brand,
+                        contentColor = colors.onBrand,
+                        modifier = Modifier.weight(1f),
+                        height = 48.dp,
+                        fontSize = 13,
+                    )
+                    PillButton(
+                        label = "هاوردەکردن",
+                        onClick = { openFile.launch(arrayOf("application/json", "text/plain", "*/*")) },
+                        icon = AppIcons.cloudDone(),
+                        container = colors.brandSoft,
+                        contentColor = colors.brandDeep,
+                        modifier = Modifier.weight(1f),
+                        height = 48.dp,
+                        fontSize = 13,
+                    )
+                }
             }
 
             SectionHeader(text = "ئاسایش")

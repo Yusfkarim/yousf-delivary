@@ -7,6 +7,14 @@ data class ExtraPhone(
     val hasViber: Boolean = false,
 )
 
+/** One record can be a person or a business — the fields are identical. */
+object Kinds {
+    const val CUSTOMER = "customer"
+    const val SHOP = "shop"
+
+    fun normalize(value: String?): String = if (value == SHOP) SHOP else CUSTOMER
+}
+
 /** Local sync state for Room-first writes. */
 enum class SyncStatus {
     SYNCED,
@@ -22,6 +30,7 @@ enum class SyncStatus {
  */
 data class Customer(
     val id: String,
+    val kind: String = Kinds.CUSTOMER,
     val name: String,
     val primaryPhone: String,
     val hasWhatsapp: Boolean = false,
@@ -34,6 +43,7 @@ data class Customer(
     val updatedAt: Long = System.currentTimeMillis(),
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
 ) {
+    val isShop: Boolean get() = kind == Kinds.SHOP
     val hasCoordinates: Boolean get() = latitude != 0.0 || longitude != 0.0
     val allPhones: List<String> get() = listOf(primaryPhone) + extraPhones.map { it.number }
 }
@@ -41,6 +51,7 @@ data class Customer(
 /** Values produced by the add/edit sheet. */
 data class CustomerDraft(
     val id: String? = null,
+    val kind: String = Kinds.CUSTOMER,
     val name: String = "",
     val primaryPhone: String = "",
     val hasWhatsapp: Boolean = false,

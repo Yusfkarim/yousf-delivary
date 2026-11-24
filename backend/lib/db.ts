@@ -34,7 +34,7 @@ type PgPool = ReturnType<typeof createPool>;
 
 const TABLE = 'customers';
 const COLUMNS =
-  'id,name,primary_phone,has_whatsapp,has_viber,extra_phones,latitude,longitude,address_note,created_at,updated_at';
+  'id,kind,name,primary_phone,has_whatsapp,has_viber,extra_phones,latitude,longitude,address_note,created_at,updated_at';
 
 function clean(value: string | undefined | null): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -133,6 +133,7 @@ async function withRetry<T>(task: () => Promise<T>, attempts = 2): Promise<T> {
 const CREATE_TABLE = `
   CREATE TABLE IF NOT EXISTS customers (
     id             TEXT PRIMARY KEY,
+    kind           TEXT NOT NULL DEFAULT 'customer',
     name           TEXT NOT NULL,
     primary_phone  TEXT NOT NULL,
     has_whatsapp   BOOLEAN NOT NULL DEFAULT FALSE,
@@ -167,6 +168,9 @@ function createPostgresStore(url: string): CustomerStore {
     if (!schemaReady) {
       schemaReady = (async () => {
         await pg.query(CREATE_TABLE);
+        // Older deployments predate the shops column — add it in place so no
+        // existing row is ever lost.
+        await pg.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'customer'`);
         await pg.query(
           `CREATE INDEX IF NOT EXISTS customers_updated_at_idx ON customers (updated_at DESC)`,
         );
@@ -203,10 +207,11 @@ function createPostgresStore(url: string): CustomerStore {
         const pg = await ready();
         const result = await pg.query<CustomerRow>(
           `INSERT INTO customers
-             (id, name, primary_phone, has_whatsapp, has_viber, extra_phones,
+             (id, kind, name, primary_phone, has_whatsapp, has_viber, extra_phones,
               latitude, longitude, address_note, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11)
+           VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12)
            ON CONFLICT (id) DO UPDATE SET
+             kind = EXCLUDED.kind,
              name = EXCLUDED.name,
              primary_phone = EXCLUDED.primary_phone,
              has_whatsapp = EXCLUDED.has_whatsapp,
@@ -219,6 +224,7 @@ function createPostgresStore(url: string): CustomerStore {
            RETURNING ${COLUMNS}`,
           [
             customer.id,
+            customer.kind,
             customer.name,
             customer.primaryPhone,
             customer.hasWhatsapp,
@@ -240,19 +246,21 @@ function createPostgresStore(url: string): CustomerStore {
         const pg = await ready();
         const result = await pg.query<CustomerRow>(
           `UPDATE customers SET
-             name = $2,
-             primary_phone = $3,
-             has_whatsapp = $4,
-             has_viber = $5,
-             extra_phones = $6::jsonb,
-             latitude = $7,
-             longitude = $8,
-             address_note = $9,
-             updated_at = $10
+             kind = $2,
+             name = $3,
+             primary_phone = $4,
+             has_whatsapp = $5,
+             has_viber = $6,
+             extra_phones = $7::jsonb,
+             latitude = $8,
+             longitude = $9,
+             address_note = $10,
+             updated_at = $11
            WHERE id = $1
            RETURNING ${COLUMNS}`,
           [
             id,
+            customer.kind,
             customer.name,
             customer.primaryPhone,
             customer.hasWhatsapp,
@@ -283,6 +291,7 @@ function createPostgresStore(url: string): CustomerStore {
 function toRow(customer: ParsedCustomer): CustomerRow {
   return {
     id: customer.id,
+    kind: customer.kind,
     name: customer.name,
     primary_phone: customer.primaryPhone,
     has_whatsapp: customer.hasWhatsapp,

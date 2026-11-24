@@ -37,6 +37,29 @@ class CustomerRepository(
     val customers: Flow<List<Customer>> =
         dao.observeAll().map { entities -> entities.map { it.toDomain() } }
 
+    /** Every record (customers + shops) once, for the JSON backup. */
+    suspend fun allOnce(): List<Customer> = withContext(Dispatchers.IO) {
+        dao.allOnce().map { it.toDomain() }
+    }
+
+    /**
+     * Merges a backup file into Room. The freshest copy wins, so importing an
+     * old backup never overwrites something edited later on this phone.
+     */
+    suspend fun importRecords(records: List<Customer>): Int = withContext(Dispatchers.IO) {
+        if (records.isEmpty()) return@withContext 0
+        val local = dao.allOnce().associateBy { it.id }
+        val toWrite = records.filter { incoming ->
+            val existing = local[incoming.id]
+            existing == null || incoming.updatedAt >= existing.updatedAt
+        }
+        if (toWrite.isNotEmpty()) {
+            dao.upsertAll(toWrite.map { it.copy(syncStatus = SyncStatus.PENDING_UPSERT).toEntity() })
+            pushPending()
+        }
+        toWrite.size
+    }
+
     suspend fun save(customer: Customer): PushOutcome = withContext(Dispatchers.IO) {
         val pending = customer.copy(
             updatedAt = System.currentTimeMillis(),

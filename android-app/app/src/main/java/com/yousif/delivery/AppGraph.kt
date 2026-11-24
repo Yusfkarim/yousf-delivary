@@ -3,6 +3,7 @@ package com.yousif.delivery
 import android.content.Context
 import androidx.room.Room
 import com.yousif.delivery.data.AppDatabase
+import com.yousif.delivery.data.MIGRATION_1_2
 import com.yousif.delivery.data.CustomerRepository
 import com.yousif.delivery.data.remote.ApiClient
 import com.yousif.delivery.session.SessionStore
@@ -30,6 +31,7 @@ object AppGraph {
 
     private fun build(context: Context): CustomerRepository {
         val database = Room.databaseBuilder(context, AppDatabase::class.java, "yousif-delivery.db")
+            .addMigrations(MIGRATION_1_2)
             .fallbackToDestructiveMigration()
             .build()
         return CustomerRepository(
