@@ -138,6 +138,16 @@ fun CustomerSheet(
         }
     }
 
+    // Opening a blank "new customer" sheet while a maps link sits in the
+    // clipboard fills the location straight away — no taps at all.
+    LaunchedEffect(Unit) {
+        if (initial != null || latitude != null) return@LaunchedEffect
+        val clip = readClipboardText(context)
+        if (clip != null && MapLinkResolver.hasLink(clip) && pasteField.isBlank()) {
+            pasteField = clip
+        }
+    }
+
     // A pasted Google Maps link (short links included) resolves itself, so the
     // driver never has to press anything after "Paste".
     LaunchedEffect(pasteField) {
@@ -543,6 +553,16 @@ private fun ExtraPhoneRow(editor: ExtraPhoneEditor, onRemove: () -> Unit) {
                 modifier = Modifier.weight(1f),
             )
         }
+    }
+}
+
+private fun readClipboardText(context: Context): String? {
+    return try {
+        val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        val text = manager?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)
+        text?.toString()?.takeIf { it.isNotBlank() }
+    } catch (error: Exception) {
+        null
     }
 }
 
