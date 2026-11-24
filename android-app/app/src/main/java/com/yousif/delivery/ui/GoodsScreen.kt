@@ -60,19 +60,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yousif.delivery.data.Customer
 import com.yousif.delivery.data.GoodItem
+import com.yousif.delivery.data.Kinds
 import com.yousif.delivery.ui.icons.AppIcons
 import com.yousif.delivery.ui.theme.LocalAppColors
 import com.yousif.delivery.util.TextUtils
 import java.util.UUID
 
 /**
- * «کاڵای کڕیار» — a creamy, glassy checklist of everything the driver has to
- * carry: one card per item, a quantity stepper, and an optional owner picked from
- * the phonebook (it can also stay empty).
+ * «کاڵای کڕیار» — the driver's load, grouped **one section per person**.
+ *
+ * Every card is one owner (a customer, a shop or «بێ کەس») with their whole name
+ * on top, and inside it every good he has to carry with its quantity stepper.
+ * Nothing is a lonely card any more: one person = one section.
  */
 @Composable
 fun GoodsScreen(
     goods: List<GoodItem>,
+    people: List<Customer>,
     onBump: (GoodItem, Int) -> Unit,
     onEdit: (GoodItem) -> Unit,
     onDelete: (GoodItem) -> Unit,
@@ -81,6 +85,24 @@ fun GoodsScreen(
 ) {
     val colors = LocalAppColors.current
     var deleteTarget by remember { mutableStateOf<GoodItem?>(null) }
+
+    val groups = remember(goods, people) {
+        val byId = people.associateBy { it.id }
+        goods.groupBy { item -> item.customerId ?: NOBODY_KEY }
+            .map { (key, items) ->
+                val person = items.firstNotNullOfOrNull { item -> item.customerId?.let { byId[it] } }
+                GoodGroup(
+                    key = key,
+                    name = person?.name
+                        ?: items.firstNotNullOfOrNull { item ->
+                            item.customerName?.takeIf { name -> name.isNotBlank() }
+                        }
+                        ?: "بێ کەس",
+                    kind = person?.kind,
+                    items = items,
+                )
+            }
+    }
 
     Column(modifier.fillMaxSize()) {
         Row(
@@ -94,11 +116,11 @@ fun GoodsScreen(
                     text = "کاڵای کڕیار",
                     color = colors.textPrimary,
                     fontSize = 21.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.ExtraBold,
                 )
                 Spacer(Modifier.height(3.dp))
                 Text(
-                    text = "هەر کاڵایەک کە دەبێت بگەیەنیت — بە ژمارە و بە کەسەکەی",
+                    text = "هەر کەسێک بەشێکی تایبەت — کاڵاکانی لە یەک کارتدا",
                     color = colors.textSecondary,
                     fontSize = 12.sp,
                 )
@@ -128,19 +150,18 @@ fun GoodsScreen(
                     GlassEmptyState(
                         icon = AppIcons.packageBox(),
                         title = "هێشتا هیچ کاڵایەک نییە",
-                        hint = "بە دوگمەی «زیادکردنی کاڵا» دەست پێبکە — ناوێک بنووسە، ژمارە دیاری بکە،\n" +
+                        hint = "بە دوگمەی «زیادکردنی خانەی کاڵا» دەست پێبکە — ناوێک بنووسە، ژمارە دیاری بکە،\n" +
                             "و ئەگەر ویستت کەسێک لە لیستی کڕیارەکان هەڵبژێرە.",
                     )
                 }
             }
 
-            itemsIndexed(items = goods, key = { _, item -> item.id }) { index, item ->
-                GoodCard(
-                    index = index,
-                    item = item,
-                    onBump = { delta -> onBump(item, delta) },
-                    onEdit = { onEdit(item) },
-                    onDelete = { deleteTarget = item },
+            items(items = groups, key = { group -> group.key }) { group ->
+                GoodGroupCard(
+                    group = group,
+                    onBump = onBump,
+                    onEdit = onEdit,
+                    onDelete = { item -> deleteTarget = item },
                 )
             }
         }
@@ -151,7 +172,13 @@ fun GoodsScreen(
             onDismissRequest = { deleteTarget = null },
             containerColor = colors.surface,
             shape = RoundedCornerShape(26.dp),
-            title = { Text("سڕینەوەی کاڵا", color = colors.textPrimary, fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    text = "سڕینەوەی کاڵا",
+                    color = colors.textPrimary,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+            },
             text = {
                 Text(
                     "دڵنیایی لە سڕینەوەی «${target.title}»؟",
@@ -172,96 +199,159 @@ fun GoodsScreen(
     }
 }
 
+/** One owner (customer / shop / «بێ کەس») with every good of that owner inside. */
 @Composable
-private fun GoodCard(
-    index: Int,
-    item: GoodItem,
-    onBump: (Int) -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
+private fun GoodGroupCard(
+    group: GoodGroup,
+    onBump: (GoodItem, Int) -> Unit,
+    onEdit: (GoodItem) -> Unit,
+    onDelete: (GoodItem) -> Unit,
 ) {
     val colors = LocalAppColors.current
+    val nobody = group.key == NOBODY_KEY
+    val isShop = group.kind == Kinds.SHOP
 
-    GlassCard(padding = 14.dp, onClick = onEdit) {
+    GlassCard(padding = 13.dp, radius = 24.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(colors.brand),
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(if (nobody) colors.surfaceAlt else colors.brandSoft)
+                    .border(
+                        1.dp,
+                        if (nobody) colors.border else colors.brand.copy(alpha = 0.22f),
+                        RoundedCornerShape(14.dp),
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = TextUtils.toKurdish((index + 1).toString()),
-                    color = colors.onBrand,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                )
+                if (nobody) {
+                    Icon(
+                        AppIcons.user(),
+                        contentDescription = null,
+                        tint = colors.textMuted,
+                        modifier = Modifier.size(20.dp),
+                    )
+                } else {
+                    Text(
+                        text = TextUtils.initials(group.name),
+                        color = colors.brandDeep,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                }
             }
             Spacer(Modifier.width(11.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = item.title,
+                    text = group.name,
                     color = colors.textPrimary,
-                    fontSize = 15.5.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.ExtraBold,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
                 )
-                if (item.note.isNotBlank()) {
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = item.note,
-                        color = colors.textMuted,
-                        fontSize = 11.5.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    text = TextUtils.toKurdish(group.items.size.toString()) + " کاڵا",
+                    color = colors.textSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                )
             }
-            IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    AppIcons.delete(),
-                    contentDescription = "سڕینەوە",
-                    tint = colors.textMuted,
-                    modifier = Modifier.size(17.dp),
+            if (!nobody) {
+                GlassChip(
+                    text = if (isShop) "فرۆشگا" else "کڕیار",
+                    icon = if (isShop) AppIcons.store() else AppIcons.user(),
+                    tint = colors.brandDeep,
+                    container = colors.brandSoft,
                 )
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(10.dp))
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            GlassStepButton(icon = AppIcons.minus(), onClick = { onBump(-1) })
-            Box(
+        group.items.forEachIndexed { index, item ->
+            if (index > 0) DividerLine()
+            Row(
                 modifier = Modifier
-                    .width(52.dp)
-                    .padding(horizontal = 4.dp),
-                contentAlignment = Alignment.Center,
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = TextUtils.toKurdish(item.total.toString()),
-                    color = colors.textPrimary,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-            GlassStepButton(icon = AppIcons.plus(), onClick = { onBump(1) })
-
-            Spacer(Modifier.weight(1f))
-
-            if (item.hasCustomer) {
-                GlassChip(
-                    text = item.customerName.orEmpty(),
-                    icon = AppIcons.user(),
-                )
-            } else {
-                GlassChip(
-                    text = "بێ کەس",
-                    icon = AppIcons.user(),
-                    tint = colors.textMuted,
-                    container = if (colors.isDark) Color(0xFF2A211C) else Color(0xFFFFF8F2),
-                )
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(colors.brand),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = TextUtils.toKurdish((index + 1).toString()),
+                        color = colors.onBrand,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                }
+                Spacer(Modifier.width(9.dp))
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onEdit(item) },
+                ) {
+                    Text(
+                        text = item.title,
+                        color = colors.textPrimary,
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (item.note.isNotBlank()) {
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = item.note,
+                            color = colors.textMuted,
+                            fontSize = 10.5.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                Spacer(Modifier.width(6.dp))
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(colors.surfaceSunken)
+                        .border(1.dp, colors.border, RoundedCornerShape(50))
+                        .padding(3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    StepCircle(AppIcons.minus()) { onBump(item, -1) }
+                    Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = TextUtils.toKurdish(item.total.toString()),
+                            color = colors.textPrimary,
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                        )
+                    }
+                    StepCircle(AppIcons.plus()) { onBump(item, 1) }
+                }
+                Spacer(Modifier.width(2.dp))
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(RoundedCornerShape(50))
+                        .clickable { onDelete(item) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        AppIcons.delete(),
+                        contentDescription = "سڕینەوە",
+                        tint = colors.textMuted,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
             }
         }
     }
@@ -804,3 +894,13 @@ private data class GoodDraft(
     val quantity: Int,
     val createdAt: Long,
 )
+
+/** Goods grouped under one owner. */
+private class GoodGroup(
+    val key: String,
+    val name: String,
+    val kind: String?,
+    val items: List<GoodItem>,
+)
+
+private const val NOBODY_KEY = "-"

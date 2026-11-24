@@ -146,6 +146,8 @@ fun HomeScreen(viewModel: MainViewModel) {
         }
     }
 
+    val everyone = remember(customers, shops) { customers + shops }
+
     val isShops = tab == HomeTab.SHOPS
     val activeList = if (isShops) shops else customers
     val activeVisible = if (isShops) visibleShops else visibleCustomers
@@ -249,6 +251,7 @@ fun HomeScreen(viewModel: MainViewModel) {
 
                 HomeTab.GOODS -> GoodsScreen(
                     goods = goods,
+                    people = everyone,
                     onBump = { item, delta -> viewModel.bumpGood(item, delta) },
                     onEdit = { item ->
                         editingGood = item
