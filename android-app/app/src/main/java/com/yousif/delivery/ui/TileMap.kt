@@ -374,10 +374,10 @@ private fun TileImage(
     modifier: Modifier,
     onLoaded: () -> Unit,
 ) {
-    var bitmap by remember(url) { mutableStateOf<ImageBitmap?>(TileCache.memory(url)) }
+    var bitmap by remember(url) { mutableStateOf<ImageBitmap?>(TileCache.cached(url)) }
 
     LaunchedEffect(url) {
-        val cached = TileCache.memory(url)
+        val cached = TileCache.cached(url)
         if (cached != null) {
             bitmap = cached
             onLoaded()
@@ -409,7 +409,7 @@ private fun TileImage(
  */
 private object TileCache {
 
-    private val memory = object : LinkedHashMap<String, ImageBitmap>(24, 0.75f, true) {
+    private val store = object : LinkedHashMap<String, ImageBitmap>(24, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ImageBitmap>): Boolean =
             size > 48
     }
@@ -430,7 +430,7 @@ private object TileCache {
         }
     }
 
-    fun memory(url: String): ImageBitmap? = synchronized(memory) { memory[url] }
+    fun cached(url: String): ImageBitmap? = synchronized(store) { store[url] }
 
     fun load(url: String): ImageBitmap? {
         val http = client ?: return null
@@ -444,7 +444,7 @@ private object TileCache {
                 val bytes = response.body?.bytes() ?: return null
                 val bitmap: Bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
                 val image = bitmap.asImageBitmap()
-                synchronized(memory) { memory[url] = image }
+                synchronized(store) { store[url] = image }
                 image
             }
         } catch (error: Exception) {
