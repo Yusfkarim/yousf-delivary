@@ -462,7 +462,8 @@ fun Segmented(
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(50))
-            .background(colors.surfaceAlt)
+            .background(colors.surface)
+            .border(1.dp, colors.border, RoundedCornerShape(50))
             .padding(3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -471,15 +472,15 @@ fun Segmented(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(36.dp)
+                    .height(38.dp)
                     .clip(RoundedCornerShape(50))
-                    .background(if (selected) colors.surface else Color.Transparent)
+                    .background(if (selected) colors.brand else Color.Transparent)
                     .clickable { onSelect(index) },
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = option,
-                    color = if (selected) colors.brandDeep else colors.textSecondary,
+                    color = if (selected) colors.onBrand else colors.textSecondary,
                     fontSize = 12.sp,
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                 )

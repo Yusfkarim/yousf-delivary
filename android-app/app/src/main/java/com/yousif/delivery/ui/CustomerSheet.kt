@@ -86,6 +86,7 @@ fun CustomerSheet(
     var longitude by remember { mutableStateOf(initial?.longitude?.takeIf { it != 0.0 }) }
     var pasteField by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
+    var showPicker by remember { mutableStateOf(false) }
 
     val extras = remember {
         mutableStateListOf<ExtraPhoneEditor>().apply {
@@ -202,33 +203,68 @@ fun CustomerSheet(
 
             SectionHeader(text = "شوێنی کڕیار")
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(215.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .border(1.dp, colors.border, RoundedCornerShape(20.dp)),
-            ) {
-                OsmMap(
-                    modifier = Modifier.fillMaxSize(),
-                    center = initialCenter,
-                    zoom = 15.0,
-                    me = myLocation?.let { MapPoint(it.latitude, it.longitude, "شوێنی من") },
-                    customer = if (latitude != null && longitude != null) {
-                        MapPoint(latitude ?: 0.0, longitude ?: 0.0, "شوێنی کڕیار")
-                    } else {
-                        null
-                    },
-                    onTap = { lat, lng -> applyCoordinates(lat, lng) },
+            AppCard(padding = 12.dp) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(RoundedCornerShape(15.dp))
+                            .background(if (latitude != null) colors.successSoft else colors.surfaceAlt),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            AppIcons.pin(),
+                            contentDescription = null,
+                            tint = if (latitude != null) colors.successDeep else colors.textMuted,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    Spacer(Modifier.width(11.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = if (latitude != null && longitude != null) "شوێن دیاریکراوە" else "هێشتا شوێن دیاری نەکراوە",
+                            color = colors.textPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = if (latitude != null && longitude != null) {
+                                TextUtils.coordinates(latitude ?: 0.0, longitude ?: 0.0)
+                            } else {
+                                "لە نەخشە یان بە GPS دیاری بکە"
+                            },
+                            color = colors.textSecondary,
+                            fontSize = 11.sp,
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                PillButton(
+                    label = "دیاریکردن لەسەر نەخشە",
+                    onClick = { showPicker = true },
+                    icon = AppIcons.map(),
+                    container = colors.brand,
+                    contentColor = colors.onBrand,
+                    modifier = Modifier.fillMaxWidth(),
+                    height = 48.dp,
                 )
             }
 
-            Text(
-                text = "لە نەخشەکە دەست بنێ بۆ دیاریکردنی شوێن",
-                color = colors.textMuted,
-                fontSize = 11.sp,
-                modifier = Modifier.padding(top = 6.dp, bottom = 10.dp),
-            )
+            if (showPicker) {
+                LocationPickerDialog(
+                    initial = if (latitude != null && longitude != null) {
+                        MapPoint(latitude ?: 0.0, longitude ?: 0.0)
+                    } else {
+                        initialCenter
+                    },
+                    me = myLocation?.let { MapPoint(it.latitude, it.longitude, "شوێنی من") },
+                    onDismiss = { showPicker = false },
+                    onConfirm = { lat, lng ->
+                        applyCoordinates(lat, lng)
+                        showPicker = false
+                    },
+                )
+            }
 
             AppCard(padding = 14.dp) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

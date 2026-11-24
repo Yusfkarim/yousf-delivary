@@ -46,8 +46,11 @@ data class MapPoint(
 
 /**
  * OpenStreetMap tiles through osmdroid — no API key, no watermark. The palette
- * follows the app theme: CARTO `light_all` by day, `dark_all` at night, so the
- * map never looks pasted in. Tiles are cached on disk by osmdroid.
+ * follows the app theme: CARTO `light_all` by day, `dark_all` at night.
+ *
+ * The view is deliberately "quiet": it only re-centres, re-tiles and rebuilds
+ * overlays when something actually changed. Rebuilding on every recomposition
+ * was what made the map feel like it froze when the sheet scrolled.
  */
 private fun tileSource(dark: Boolean): XYTileSource {
     val name = if (dark) "CartoDark" else "CartoLight"
@@ -80,6 +83,7 @@ fun OsmMap(
     customer: MapPoint? = null,
     points: List<MapPoint> = emptyList(),
     showControls: Boolean = true,
+    interactive: Boolean = true,
     onLocate: (() -> Unit)? = null,
     onTap: ((Double, Double) -> Unit)? = null,
 ) {
@@ -92,12 +96,17 @@ fun OsmMap(
     val mapView = remember {
         MapView(context).apply {
             setTileSource(source)
-            setMultiTouchControls(true)
+            setMultiTouchControls(interactive)
             setUseDataConnection(true)
             setTilesScaledToDpi(true)
             minZoomLevel = 3.0
             maxZoomLevel = 19.0
             controller.setZoom(zoom)
+            if (!interactive) {
+                // Pure preview: swallow touches so a parent scroller never fights
+                // the map for the gesture (that tug-of-war is what froze the UI).
+                setOnTouchListener { _, _ -> true }
+            }
         }
     }
 
@@ -129,37 +138,55 @@ fun OsmMap(
                     state.source = source
                     view.setTileSource(source)
                 }
-                view.overlayManager.tilesOverlay.setLoadingBackgroundColor(background)
-                view.overlayManager.tilesOverlay.setLoadingLineColor(background)
+                if (state.background != background) {
+                    state.background = background
+                    view.overlayManager.tilesOverlay.setLoadingBackgroundColor(background)
+                    view.overlayManager.tilesOverlay.setLoadingLineColor(background)
+                }
 
                 val target = center ?: me ?: customer
-                if (target != null && state.center !== target) {
-                    state.center = target
-                    view.controller.setZoom(zoom)
-                    view.controller.animateTo(GeoPoint(target.latitude, target.longitude))
+                if (target != null) {
+                    val key = "${target.latitude}/${target.longitude}/$zoom"
+                    if (state.centerKey != key) {
+                        state.centerKey = key
+                        view.controller.setZoom(zoom)
+                        view.controller.setCenter(GeoPoint(target.latitude, target.longitude))
+                    }
                 }
 
-                view.overlays.clear()
-                if (onTap != null) {
-                    view.overlays.add(
-                        MapEventsOverlay(object : MapEventsReceiver {
-                            override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
-                                onTap(p.latitude, p.longitude)
-                                return true
-                            }
+                val signature = buildString {
+                    append(customer?.latitude).append(',').append(customer?.longitude).append('|')
+                    append(me?.latitude).append(',').append(me?.longitude).append('|')
+                    points.forEach { point -> append(point.latitude).append(':').append(point.longitude).append(';') }
+                    append('|').append(onTap != null)
+                }
 
-                            override fun longPressHelper(p: GeoPoint): Boolean = false
-                        }),
-                    )
-                }
-                if (customer != null) {
-                    view.overlays.add(marker(view, customer, customer.title.ifBlank { "شوێنی کڕیار" }))
-                }
-                points.forEach { point ->
-                    view.overlays.add(marker(view, point, point.title))
-                }
-                if (me != null) {
-                    view.overlays.add(marker(view, me, me.title.ifBlank { "شوێنی من" }))
+                if (state.signature != signature) {
+                    state.signature = signature
+
+                    view.overlays.clear()
+                    if (onTap != null) {
+                        view.overlays.add(
+                            MapEventsOverlay(object : MapEventsReceiver {
+                                override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
+                                    onTap(p.latitude, p.longitude)
+                                    return true
+                                }
+
+                                override fun longPressHelper(p: GeoPoint): Boolean = false
+                            }),
+                        )
+                    }
+                    if (customer != null) {
+                        view.overlays.add(marker(view, customer, customer.title.ifBlank { "شوێنی کڕیار" }))
+                    }
+                    points.forEach { point ->
+                        view.overlays.add(marker(view, point, point.title))
+                    }
+                    if (me != null) {
+                        view.overlays.add(marker(view, me, me.title.ifBlank { "شوێنی من" }))
+                    }
+                    view.invalidate()
                 }
 
                 // Frame every customer once, so the whole delivery round is visible.
@@ -175,11 +202,10 @@ fun OsmMap(
                     )
                     view.zoomToBoundingBox(box, false, 90)
                 }
-                view.invalidate()
             },
         )
 
-        if (showControls) {
+        if (showControls && interactive) {
             Column(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -200,7 +226,7 @@ fun OsmMap(
 
         Text(
             text = "© OpenStreetMap · © CARTO",
-            color = if (colors.isDark) Color(0xFF9C8A7C) else Color(0xFF9C8A7C),
+            color = Color(0xFF9C8A7C),
             fontSize = 8.sp,
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -211,7 +237,9 @@ fun OsmMap(
 
 private class MapState {
     var source: XYTileSource? = null
-    var center: MapPoint? = null
+    var background: Int? = null
+    var centerKey: String? = null
+    var signature: String? = null
     var fitted = false
 }
 

@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.YousifDelivery" parent="android:Theme.Material.NoActionBar">
-        <item name="android:statusBarColor">#090D16</item>
-        <item name="android:navigationBarColor">#090D16</item>
-        <item name="android:windowBackground">#090D16</item>
-        <item name="android:windowLightStatusBar">false</item>
+    <style name="Theme.YousifDelivery" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">#FFF8F3</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <!-- The app ships its own day/night palette, so Android must not
+             "smart darken" the light theme into black/brown patches. -->
+        <item name="android:forceDarkAllowed">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
 </resources>

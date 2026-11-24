@@ -94,8 +94,8 @@ fun CustomerCard(
                     StatPill(
                         text = TextUtils.shortDistance(distanceMeters),
                         icon = AppIcons.pin(),
-                        tint = colors.gold,
-                        soft = colors.goldSoft,
+                        tint = colors.brandDeep,
+                        soft = colors.brandSoft,
                     )
                 }
             }
@@ -145,18 +145,18 @@ fun CustomerCard(
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
-                        .background(colors.surface)
-                        .padding(horizontal = 9.dp, vertical = 5.dp),
+                        .background(colors.brand)
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
                         AppIcons.route(),
                         contentDescription = null,
-                        tint = colors.brand,
+                        tint = colors.onBrand,
                         modifier = Modifier.size(12.dp),
                     )
                     Spacer(Modifier.width(4.dp))
-                    Text("ڕێگا", color = colors.brandDeep, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("ڕێگا", color = colors.onBrand, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

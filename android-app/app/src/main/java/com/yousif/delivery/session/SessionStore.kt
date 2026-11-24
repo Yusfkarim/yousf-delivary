@@ -29,6 +29,18 @@ class SessionStore(context: Context) {
         context.getSharedPreferences("${FILE_NAME}_fallback", Context.MODE_PRIVATE)
     }
 
+    init {
+        // v1.2.0 shipped with "follow the system", which turned the phone dark-mode
+        // into the night palette by surprise. Start everybody on the daylight theme
+        // once; the choice in Settings is respected from then on.
+        if (!prefs.getBoolean(KEY_THEME_SEEDED, false)) {
+            prefs.edit()
+                .putInt(KEY_THEME_MODE, THEME_LIGHT)
+                .putBoolean(KEY_THEME_SEEDED, true)
+                .apply()
+        }
+    }
+
     var baseUrl: String
         get() {
             val stored = prefs.getString(KEY_BASE_URL, null)
@@ -44,9 +56,9 @@ class SessionStore(context: Context) {
             prefs.edit().putString(KEY_PASSWORD, value).apply()
         }
 
-    /** 0 = follow the system, 1 = always light, 2 = always dark. */
+    /** 0 = follow the system, 1 = always light (default), 2 = always dark. */
     var themeMode: Int
-        get() = prefs.getInt(KEY_THEME_MODE, 0)
+        get() = prefs.getInt(KEY_THEME_MODE, THEME_LIGHT)
         set(value) {
             prefs.edit().putInt(KEY_THEME_MODE, value).apply()
         }
@@ -69,5 +81,7 @@ class SessionStore(context: Context) {
         const val KEY_PASSWORD = "password"
         const val KEY_LOGGED_IN = "logged_in"
         const val KEY_THEME_MODE = "theme_mode"
+        const val KEY_THEME_SEEDED = "theme_seeded"
+        const val THEME_LIGHT = 1
     }
 }

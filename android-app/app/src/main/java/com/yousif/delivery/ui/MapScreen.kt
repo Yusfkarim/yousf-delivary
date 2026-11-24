@@ -81,8 +81,8 @@ fun MapScreen(
                         StatPill(
                             text = TextUtils.toKurdish(pinned.size.toString()) + " شوێن",
                             icon = AppIcons.pin(),
-                            tint = colors.brandDeep,
-                            soft = colors.brandSoft,
+                            tint = colors.onBrand,
+                            soft = colors.brand,
                         )
                     }
                     Spacer(Modifier.height(12.dp))

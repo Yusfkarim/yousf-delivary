@@ -151,6 +151,7 @@ fun RouteDialog(
                                 else -> null
                             },
                             zoom = 15.5,
+                            interactive = false,
                             me = myLocation?.let { MapPoint(it.latitude, it.longitude, "شوێنی من") },
                             customer = if (customer.hasCoordinates) {
                                 MapPoint(customer.latitude, customer.longitude, customer.name)
