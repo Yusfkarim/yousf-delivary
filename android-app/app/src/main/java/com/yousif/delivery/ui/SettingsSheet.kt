@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yousif.delivery.ui.icons.AppIcons
 import com.yousif.delivery.BuildConfig
 import com.yousif.delivery.ui.theme.AppDanger
 import com.yousif.delivery.ui.theme.AppSurface
@@ -123,7 +124,7 @@ fun SettingsSheet(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
             ) {
-                Icon(Icons.Filled.Refresh, contentDescription = null)
+                Icon(AppIcons.sync(), contentDescription = null)
                 Spacer(Modifier.height(4.dp))
                 Text("  هاوکاتکردن لەگەڵ سێرڤەر")
             }
@@ -137,7 +138,7 @@ fun SettingsSheet(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
             ) {
-                Icon(Icons.Filled.Lock, contentDescription = null, tint = AppDanger)
+                Icon(AppIcons.lock(), contentDescription = null, tint = AppDanger)
                 Text("  قفڵکردنی ئەپ", color = AppDanger)
             }
 
@@ -154,7 +155,7 @@ fun SettingsSheet(
                 fontSize = 10.sp,
             )
             Spacer(Modifier.height(6.dp))
-            Icon(Icons.Filled.Settings, contentDescription = null, tint = AppSurfaceHigh)
+            Icon(AppIcons.settings(), contentDescription = null, tint = AppSurfaceHigh)
         }
     }
 }

@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yousif.delivery.ui.icons.AppIcons
 import com.yousif.delivery.data.Customer
 import com.yousif.delivery.data.CustomerDraft
 import com.yousif.delivery.data.ExtraPhone
@@ -187,7 +188,7 @@ fun CustomerSheet(
 
             TextButton(onClick = { extras.add(ExtraPhoneEditor()) }) {
                 Icon(
-                    Icons.Filled.Add,
+                    AppIcons.plus(),
                     contentDescription = null,
                     tint = NeonCyan,
                     modifier = Modifier.size(16.dp),
@@ -203,7 +204,7 @@ fun CustomerSheet(
                     onClick = { onRequestGps { lat, lng -> applyCoordinates(lat, lng) } },
                     shape = RoundedCornerShape(14.dp),
                 ) {
-                    Icon(Icons.Filled.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(AppIcons.pin(), contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
                     Text("شوێنی ئێستام (GPS)", fontSize = 12.sp)
                 }
@@ -217,7 +218,7 @@ fun CustomerSheet(
                         IntentUtils.toast(context, "کۆردینات کۆپی کرا")
                     }) {
                         Icon(
-                            Icons.Filled.ContentCopy,
+                            AppIcons.copy(),
                             contentDescription = null,
                             tint = AppTextSecondary,
                             modifier = Modifier.size(15.dp),
@@ -342,7 +343,7 @@ private fun ExtraPhoneRow(editor: ExtraPhoneEditor, onRemove: () -> Unit) {
                 shape = RoundedCornerShape(14.dp),
             )
             IconButton(onClick = onRemove) {
-                Icon(Icons.Filled.Delete, contentDescription = "سڕینەوە", tint = AppDanger)
+                Icon(AppIcons.delete(), contentDescription = "سڕینەوە", tint = AppDanger)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
