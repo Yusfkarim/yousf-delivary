@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { json, preflight, requireDatabase, requirePassword } from '@/lib/http';
+import { logRequest } from '@/lib/requestLog';
 import { isUuid, parseCustomer } from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -11,6 +12,7 @@ interface RouteContext {
 
 /** PUT /api/customers/[id] — atomic update, returns the saved record. */
 export async function PUT(request: NextRequest, context: RouteContext) {
+  await logRequest(request, 'PUT /api/customers/[id]');
   const denied = requirePassword(request);
   if (denied) return denied;
 
@@ -44,6 +46,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
 /** DELETE /api/customers/[id] — permanent delete. */
 export async function DELETE(request: NextRequest, context: RouteContext) {
+  await logRequest(request, 'DELETE /api/customers/[id]');
   const denied = requirePassword(request);
   if (denied) return denied;
 

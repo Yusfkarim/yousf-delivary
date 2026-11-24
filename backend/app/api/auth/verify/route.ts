@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { json, preflight } from '@/lib/http';
 import { passwordMatches } from '@/lib/password';
+import { logRequest } from '@/lib/requestLog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,6 +12,7 @@ export const dynamic = 'force-dynamic';
  * Fallback: a `{ "password": "..." }` JSON body (for curl / debugging).
  */
 export async function POST(request: NextRequest) {
+  await logRequest(request, 'POST /api/auth/verify');
   const headerOk = passwordMatches(request.headers.get('x-app-password'));
 
   let bodyOk = false;

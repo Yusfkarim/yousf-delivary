@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { json, preflight, requireDatabase, requirePassword } from '@/lib/http';
+import { logRequest } from '@/lib/requestLog';
 import { parseCustomer } from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -7,6 +8,7 @@ export const dynamic = 'force-dynamic';
 
 /** GET /api/customers — every customer, newest first. */
 export async function GET(request: NextRequest) {
+  await logRequest(request, 'GET /api/customers');
   const denied = requirePassword(request);
   if (denied) return denied;
 
@@ -27,6 +29,7 @@ export async function GET(request: NextRequest) {
  * Repeating the same request never creates duplicates, so retries are safe.
  */
 export async function POST(request: NextRequest) {
+  await logRequest(request, 'POST /api/customers');
   const denied = requirePassword(request);
   if (denied) return denied;
 
