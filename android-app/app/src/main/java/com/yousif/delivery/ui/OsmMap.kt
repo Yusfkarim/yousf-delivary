@@ -6,15 +6,21 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,18 +28,18 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.yousif.delivery.R
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.yousif.delivery.ui.icons.AppIcons
+import com.yousif.delivery.ui.map.MapStyle
+import com.yousif.delivery.ui.map.TileSources
 import com.yousif.delivery.ui.theme.LocalAppColors
 import org.osmdroid.events.MapEventsReceiver
-import org.osmdroid.tileprovider.tilesource.XYTileSource
+import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
@@ -46,36 +52,18 @@ data class MapPoint(
     val title: String = "",
 )
 
+private enum class TileState { LOADING, READY, FAILED }
+
 /**
- * OpenStreetMap tiles through osmdroid — no API key, no watermark. The palette
- * follows the app theme: CARTO `light_all` by day, `dark_all` at night.
+ * OpenStreetMap through osmdroid — no API key, no watermark, tiles cached on the
+ * phone for offline use.
  *
- * The view is deliberately "quiet": it only re-centres, re-tiles and rebuilds
- * overlays when something actually changed. Rebuilding on every recomposition
- * was what made the map feel like it froze when the sheet scrolled.
+ * Two rules keep it from ever freezing or going blank:
+ *  1. a brand-new [MapView] every time the composable enters (re-using a detached
+ *     view is what made the map render as an empty cream rectangle);
+ *  2. overlays/centre only change when the values really change, so scrolling a
+ *     parent never rebuilds the map on every frame.
  */
-private fun tileSource(dark: Boolean): XYTileSource {
-    val name = if (dark) "CartoDark" else "CartoLight"
-    val style = if (dark) "dark_all" else "light_all"
-    return XYTileSource(
-        name,
-        3,
-        19,
-        256,
-        ".png",
-        arrayOf(
-            "https://a.basemaps.cartocdn.com/$style/",
-            "https://b.basemaps.cartocdn.com/$style/",
-            "https://c.basemaps.cartocdn.com/$style/",
-            "https://d.basemaps.cartocdn.com/$style/",
-        ),
-        "© OpenStreetMap · © CARTO",
-    )
-}
-
-private val LightTiles: XYTileSource by lazy { tileSource(false) }
-private val DarkTiles: XYTileSource by lazy { tileSource(true) }
-
 @Composable
 fun OsmMap(
     modifier: Modifier = Modifier,
@@ -86,65 +74,56 @@ fun OsmMap(
     points: List<MapPoint> = emptyList(),
     showControls: Boolean = true,
     interactive: Boolean = true,
+    allowStyleSwitch: Boolean = false,
     onLocate: (() -> Unit)? = null,
     onTap: ((Double, Double) -> Unit)? = null,
 ) {
     val colors = LocalAppColors.current
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-    val source = if (colors.isDark) DarkTiles else LightTiles
+
+    var style by remember { mutableStateOf(MapStyle.STREET) }
+    var source by remember { mutableStateOf<OnlineTileSourceBase>(TileSources.forStyle(MapStyle.STREET, colors.isDark)) }
+    var tileState by remember { mutableStateOf(TileState.LOADING) }
+    var mapView by remember { mutableStateOf<MapView?>(null) }
+    val state = remember { MapState() }
     val background = if (colors.isDark) 0xFF15100D.toInt() else 0xFFFFF8F3.toInt()
 
-    val mapView = remember {
-        MapView(context).apply {
-            setTileSource(source)
-            setMultiTouchControls(interactive)
-            setUseDataConnection(true)
-            setTilesScaledToDpi(true)
-            minZoomLevel = 3.0
-            maxZoomLevel = 19.0
-            controller.setZoom(zoom)
-            if (!interactive) {
-                // Pure preview: swallow touches so a parent scroller never fights
-                // the map for the gesture (that tug-of-war is what froze the UI).
-                setOnTouchListener { _, _ -> true }
-            }
-        }
-    }
-
-    val state = remember { MapState() }
-
-    DisposableEffect(lifecycleOwner, mapView) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
-                else -> Unit
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        mapView.onResume()
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            mapView.onPause()
-            mapView.onDetach()
-        }
+    // Pick a provider that actually answers from this phone / ISP.
+    LaunchedEffect(Unit) {
+        val ready = TileSources.ensureReady()
+        tileState = if (ready) TileState.READY else TileState.FAILED
+        source = TileSources.forStyle(style, colors.isDark)
     }
 
     Box(modifier) {
         AndroidView(
-            factory = { mapView },
             modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                MapView(ctx).apply {
+                    setTileSource(source)
+                    setMultiTouchControls(interactive)
+                    setUseDataConnection(true)
+                    setTilesScaledToDpi(true)
+                    setBuiltInZoomControls(false)
+                    minZoomLevel = 3.0
+                    maxZoomLevel = 19.0
+                    controller.setZoom(zoom)
+                    if (!interactive) {
+                        setOnTouchListener { _, _ -> true }
+                    }
+                    onResume()
+                    mapView = this
+                }
+            },
             update = { view ->
                 if (state.source !== source) {
                     state.source = source
                     view.setTileSource(source)
+                    view.tileProvider.clearTileCache()
+                    view.invalidate()
                 }
-                if (state.background != background) {
-                    state.background = background
-                    view.overlayManager.tilesOverlay.setLoadingBackgroundColor(background)
-                    view.overlayManager.tilesOverlay.setLoadingLineColor(background)
-                }
+                view.overlayManager.tilesOverlay.setLoadingBackgroundColor(background)
+                view.overlayManager.tilesOverlay.setLoadingLineColor(background)
 
                 val target = center ?: me ?: customer
                 if (target != null) {
@@ -165,7 +144,6 @@ fun OsmMap(
 
                 if (state.signature != signature) {
                     state.signature = signature
-
                     view.overlays.clear()
                     if (onTap != null) {
                         view.overlays.add(
@@ -195,7 +173,7 @@ fun OsmMap(
                     view.invalidate()
                 }
 
-                // Frame every customer once, so the whole delivery round is visible.
+                // Frame every stop once, so the whole round is visible.
                 if (target == null && !state.fitted && points.size > 1) {
                     state.fitted = true
                     val latitudes = points.map { it.latitude }
@@ -209,6 +187,11 @@ fun OsmMap(
                     view.zoomToBoundingBox(box, false, 90)
                 }
             },
+            onRelease = { view ->
+                view.onPause()
+                view.onDetach()
+                mapView = null
+            },
         )
 
         if (showControls && interactive) {
@@ -216,24 +199,69 @@ fun OsmMap(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(9.dp),
             ) {
                 MapButton(AppIcons.plus(), colors.isDark) {
-                    mapView.controller.setZoom(mapView.zoomLevelDouble + 1.0)
+                    mapView?.controller?.setZoom((mapView?.zoomLevelDouble ?: zoom) + 1.0)
                 }
                 MapButton(AppIcons.minus(), colors.isDark) {
-                    mapView.controller.setZoom(mapView.zoomLevelDouble - 1.0)
+                    mapView?.controller?.setZoom((mapView?.zoomLevelDouble ?: zoom) - 1.0)
                 }
                 if (onLocate != null) {
                     MapButton(AppIcons.locate(), colors.isDark, tint = colors.brand, onClick = onLocate)
                 }
+                if (allowStyleSwitch) {
+                    MapButton(
+                        icon = when (style) {
+                            MapStyle.DARK -> AppIcons.moon()
+                            MapStyle.LIGHT -> AppIcons.sun()
+                            MapStyle.STREET -> AppIcons.map()
+                        },
+                        dark = colors.isDark,
+                        tint = colors.brandDeep,
+                    ) {
+                        style = when (style) {
+                            MapStyle.STREET -> MapStyle.LIGHT
+                            MapStyle.LIGHT -> MapStyle.DARK
+                            MapStyle.DARK -> MapStyle.STREET
+                        }
+                        source = TileSources.forStyle(style, colors.isDark)
+                    }
+                }
+            }
+        }
+
+        if (tileState == TileState.FAILED) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(10.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(colors.surface)
+                    .border(1.dp, colors.danger.copy(alpha = 0.4f), RoundedCornerShape(50))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    AppIcons.cloudWait(),
+                    contentDescription = null,
+                    tint = colors.danger,
+                    modifier = Modifier.size(14.dp),
+                )
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    text = "نەخشە نەهات — ئینتەرنێت بپشکنە",
+                    color = colors.danger,
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Bold,
+                )
             }
         }
 
         Text(
-            text = "© OpenStreetMap · © CARTO",
-            color = Color(0xFF9C8A7C),
-            fontSize = 8.sp,
+            text = TileSources.attribution(style, colors.isDark),
+            color = if (colors.isDark) Color(0xFF9C8A7C) else Color(0xFF8B7768),
+            fontSize = 8.5.sp,
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(start = 8.dp, bottom = 6.dp),
@@ -242,8 +270,7 @@ fun OsmMap(
 }
 
 private class MapState {
-    var source: XYTileSource? = null
-    var background: Int? = null
+    var source: OnlineTileSourceBase? = null
     var centerKey: String? = null
     var signature: String? = null
     var fitted = false
@@ -256,10 +283,10 @@ private fun MapButton(
     tint: Color? = null,
     onClick: () -> Unit,
 ) {
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(15.dp)
     Box(
         modifier = Modifier
-            .size(46.dp)
+            .size(48.dp)
             .shadow(5.dp, shape, clip = false)
             .clip(shape)
             .background(if (dark) Color(0xFFE6201A15) else Color(0xFFFFFFFF))
@@ -271,7 +298,7 @@ private fun MapButton(
             icon,
             contentDescription = null,
             tint = tint ?: if (dark) Color(0xFFF0E7DF) else Color(0xFF2A1A11),
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(23.dp),
         )
     }
 }

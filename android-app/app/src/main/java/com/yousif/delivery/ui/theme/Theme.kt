@@ -140,7 +140,7 @@ fun YousifTheme(
 
     val density = LocalDensity.current
     // A gentle global bump: the driver reads the screen at arm's length in a car.
-    val readable = Density(density = density.density, fontScale = density.fontScale * 1.06f)
+    val readable = Density(density = density.density, fontScale = density.fontScale * 1.10f)
 
     CompositionLocalProvider(
         LocalAppColors provides palette,

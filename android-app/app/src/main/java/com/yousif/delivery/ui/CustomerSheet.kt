@@ -56,6 +56,7 @@ import com.yousif.delivery.util.MapLinkParser
 import com.yousif.delivery.util.MapLinkResolver
 import com.yousif.delivery.util.TextUtils
 import com.yousif.delivery.viewmodel.LocationFix
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** Mutable row state for the "extra numbers" editor. */
@@ -126,15 +127,45 @@ fun CustomerSheet(
         error = null
     }
 
+    fun applyLink(raw: String) {
+        val text = raw.trim()
+        if (text.isEmpty()) {
+            error = "لینک یان کۆردینات بنووسە"
+            return
+        }
+        scope.launch {
+            resolving = true
+            error = null
+            linkStatus = "لینک دەخوێندرێتەوە…"
+            val parsed = MapLinkParser.parse(text) ?: MapLinkResolver.resolve(text)
+            resolving = false
+            if (parsed != null) {
+                applyCoordinates(parsed.first, parsed.second)
+                pasteField = TextUtils.coordinates(parsed.first, parsed.second)
+                linkStatus = "شوێن دۆزرایەوە ✓"
+            } else {
+                linkStatus = null
+                error = "شوێن لەم لینکە نەدۆزرایەوە — لینکەکە بە تەواوی کۆپی بکەوە، یان لە نەخشە دیاری بکە"
+            }
+        }
+    }
+
     fun parsePaste() {
-        val fromField = MapLinkParser.parse(pasteField)
-        val fromClipboard = readClipboardCoordinates(context)
-        val parsed = fromField ?: fromClipboard
-        if (parsed != null) {
-            applyCoordinates(parsed.first, parsed.second)
-            pasteField = TextUtils.coordinates(parsed.first, parsed.second)
+        val clipboard = readClipboardText(context)
+        val candidate = pasteField.ifBlank { clipboard.orEmpty() }
+        if (candidate.isBlank()) {
+            val parsed = readClipboardCoordinates(context)
+            if (parsed != null) {
+                applyCoordinates(parsed.first, parsed.second)
+                pasteField = TextUtils.coordinates(parsed.first, parsed.second)
+                linkStatus = "شوێن دۆزرایەوە ✓"
+                error = null
+            } else {
+                error = "هیچ لینکێک یان کۆردیناتێک نەدۆزرایەوە"
+            }
         } else {
-            error = "نەتوانرا شوێن لە دەقەکە بدۆزرێتەوە"
+            pasteField = candidate
+            applyLink(candidate)
         }
     }
 
@@ -151,26 +182,10 @@ fun CustomerSheet(
     // A pasted Google Maps link (short links included) resolves itself, so the
     // driver never has to press anything after "Paste".
     LaunchedEffect(pasteField) {
+        delay(450)
         val text = pasteField.trim()
         if (text.isEmpty() || !MapLinkResolver.hasLink(text)) return@LaunchedEffect
-        if (MapLinkParser.parse(text) != null) {
-            val parsed = MapLinkParser.parse(text)
-            if (parsed != null) {
-                applyCoordinates(parsed.first, parsed.second)
-                linkStatus = "شوێن لە لینکەکە دۆزرایەوە ✓"
-                return@LaunchedEffect
-            }
-        }
-        resolving = true
-        linkStatus = "لینک دەخوێندرێتەوە…"
-        val resolved = MapLinkResolver.resolve(text)
-        resolving = false
-        if (resolved != null) {
-            applyCoordinates(resolved.first, resolved.second)
-            linkStatus = "شوێن لە لینکەکە دۆزرایەوە ✓"
-        } else {
-            linkStatus = "نەتوانرا شوێن لەم لینکە بدۆزرێتەوە — بە نەخشە دیاری بکە"
-        }
+        if (MapLinkParser.parse(text) == null) applyLink(text)
     }
 
     ModalBottomSheet(
@@ -280,7 +295,7 @@ fun CustomerSheet(
                         Text(
                             text = if (latitude != null && longitude != null) "شوێن دیاریکراوە" else "هێشتا شوێن دیاری نەکراوە",
                             color = colors.textPrimary,
-                            fontSize = 13.sp,
+                            fontSize = 14.5.sp,
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
@@ -290,9 +305,21 @@ fun CustomerSheet(
                                 "لە نەخشە یان بە GPS دیاری بکە"
                             },
                             color = colors.textSecondary,
-                            fontSize = 11.sp,
+                            fontSize = 12.5.sp,
                         )
                     }
+                }
+                val previewLat = latitude
+                val previewLng = longitude
+                if (previewLat != null && previewLng != null) {
+                    Spacer(Modifier.height(10.dp))
+                    MapThumb(
+                        latitude = previewLat,
+                        longitude = previewLng,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(168.dp),
+                    )
                 }
                 Spacer(Modifier.height(12.dp))
                 PillButton(
