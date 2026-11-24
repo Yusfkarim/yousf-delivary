@@ -2,6 +2,7 @@ package com.yousif.delivery.data
 
 import android.content.Context
 import com.yousif.delivery.data.remote.ApiClient
+import com.yousif.delivery.data.remote.CustomerDto
 import com.yousif.delivery.data.remote.toDomain
 import com.yousif.delivery.session.SessionStore
 import com.yousif.delivery.sync.SyncScheduler
@@ -9,6 +10,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+
+/**
+ * Result of a full sync. Carries the HTTP code so the UI can explain *why* a
+ * sync failed instead of showing one generic message.
+ */
+data class SyncResult(
+    val ok: Boolean,
+    val code: Int = 200,
+    val message: String? = null,
+)
 
 /**
  * Room-first repository:
@@ -41,10 +52,17 @@ class CustomerRepository(
     }
 
     /** Pushes every pending row, then downloads the full cloud dataset. */
-    suspend fun syncAll(): Boolean = withContext(Dispatchers.IO) {
+    suspend fun syncAll(): Boolean = syncDetailed().ok
+
+    /** Same as [syncAll] but reports the failure code/message for the UI. */
+    suspend fun syncDetailed(): SyncResult = withContext(Dispatchers.IO) {
         val pushed = pushPending()
-        val pulled = pullRemote()
-        pushed && pulled
+        val result = api.list(session.baseUrl, session.password)
+        if (!result.ok) {
+            return@withContext SyncResult(ok = false, code = result.code, message = result.message)
+        }
+        applyRemote(result.value.orEmpty())
+        SyncResult(ok = pushed, code = 200, message = if (pushed) null else "pending push")
     }
 
     suspend fun pushPending(): Boolean = withContext(Dispatchers.IO) {
@@ -65,8 +83,12 @@ class CustomerRepository(
     suspend fun pullRemote(): Boolean = withContext(Dispatchers.IO) {
         val result = api.list(session.baseUrl, session.password)
         if (!result.ok) return@withContext false
+        applyRemote(result.value.orEmpty())
+        true
+    }
 
-        val remote = result.value.orEmpty()
+    /** Merges the cloud rows into Room without touching unsynced local rows. */
+    private suspend fun applyRemote(remote: List<CustomerDto>) {
         val local = dao.allOnce().associateBy { it.id }
         val toWrite = remote.mapNotNull { dto ->
             val existing = local[dto.id]
@@ -78,7 +100,6 @@ class CustomerRepository(
             }
         }
         if (toWrite.isNotEmpty()) dao.upsertAll(toWrite)
-        true
     }
 
     private suspend fun pushSingle(customer: Customer): PushOutcome {
