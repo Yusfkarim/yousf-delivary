@@ -1,5 +1,4 @@
 import type { NextRequest } from 'next/server';
-import { deleteCustomer, updateCustomer } from '@/lib/db';
 import { json, preflight, requireDatabase, requirePassword } from '@/lib/http';
 import { isUuid, parseCustomer } from '@/lib/types';
 
@@ -34,7 +33,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   if ('response' in db) return db.response;
 
   try {
-    const customer = await updateCustomer(db.pool, id, parsed.value);
+    const customer = await db.store.update(id, parsed.value);
     if (!customer) return json({ error: 'not_found' }, 404);
     return json({ customer }, 200);
   } catch (error) {
@@ -55,7 +54,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
   if ('response' in db) return db.response;
 
   try {
-    const deleted = await deleteCustomer(db.pool, id);
+    const deleted = await db.store.remove(id);
     if (!deleted) return json({ error: 'not_found', id }, 404);
     return json({ ok: true, deleted: true, id }, 200);
   } catch (error) {

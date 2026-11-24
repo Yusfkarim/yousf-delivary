@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import { ensureSchema, getPool, isConfigured } from './db';
+import { describeError, getStore, isConfigured, type CustomerStore } from './db';
 import { passwordMatches } from './password';
-
-export type Pool = NonNullable<ReturnType<typeof getPool>>;
 
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -25,32 +23,36 @@ export function requirePassword(request: Request): NextResponse | null {
   return json({ error: 'unauthorized', message: 'وشەی نهێنی هەڵەیە' }, 401);
 }
 
-/** Resolves a pool and makes sure the schema exists. */
-export async function requireDatabase(): Promise<{ pool: Pool } | { response: NextResponse }> {
+/** Resolves the active store (Postgres or Supabase REST). */
+export async function requireDatabase(): Promise<
+  { store: CustomerStore } | { response: NextResponse }
+> {
   if (!isConfigured()) {
     return {
       response: json(
         {
           error: 'database_not_configured',
-          message: 'POSTGRES_URL دانەنراوە — داتابەیس بە پرۆژەکەوە ببەستەوە',
+          message: 'داتابەیس بەستراوەتەوە نییە — لە Vercel داتابەیسێک (Postgres یان Supabase) ببەستەوە',
         },
         503,
       ),
     };
   }
-  const pool = getPool();
-  if (!pool) {
-    return { response: json({ error: 'database_not_configured' }, 503) };
-  }
   try {
-    await ensureSchema(pool);
+    return { store: await getStore() };
   } catch (error) {
-    console.error('[db] schema init failed', error);
+    console.error('[db] unavailable', error);
     return {
-      response: json({ error: 'database_error', message: 'گرێدان بە داتابەیس سەرکەوتوو نەبوو' }, 503),
+      response: json(
+        {
+          error: 'database_error',
+          message: 'گرێدان بە داتابەیس سەرکەوتوو نەبوو',
+          detail: describeError(error),
+        },
+        503,
+      ),
     };
   }
-  return { pool };
 }
 
 export function unauthorized(): NextResponse {
