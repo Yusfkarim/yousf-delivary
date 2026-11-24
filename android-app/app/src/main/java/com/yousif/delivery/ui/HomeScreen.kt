@@ -266,6 +266,11 @@ fun HomeScreen(viewModel: MainViewModel) {
                     myLocation = myLocation,
                     distanceOf = { customer -> viewModel.distanceTo(customer) },
                     onOpenRoute = { customer -> routeTarget = customer },
+                    onOpenCustomer = { customer ->
+                        editing = customer
+                        prefill = null
+                        showSheet = true
+                    },
                     onLocate = {
                         requestGps { _, _ -> viewModel.onLocationPermissionGranted() }
                     },

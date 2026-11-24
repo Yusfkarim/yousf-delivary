@@ -338,7 +338,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Serialises every customer and shop to a pretty-printed JSON string. */
     suspend fun backupJson(): String = withContext(Dispatchers.IO) {
-        com.yousif.delivery.util.BackupCodec.encode(repository.allOnce())
+        val goodsSnapshot = goodDao.allOnce().map(GoodEntity::toDomain)
+        com.yousif.delivery.util.BackupCodec.encode(repository.allOnce(), goodsSnapshot)
     }
 
     fun backupFileName(): String = com.yousif.delivery.util.BackupCodec.fileName()
@@ -354,8 +355,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 onDone(0)
                 return@launch
             }
+            val goodsRows = withContext(Dispatchers.IO) {
+                com.yousif.delivery.util.BackupCodec.decodeGoods(json).map { it.toEntity() }
+            }
+            if (goodsRows.isNotEmpty()) {
+                withContext(Dispatchers.IO) { goodDao.upsertAll(goodsRows) }
+            }
             val written = repository.importRecords(records)
-            emit("${TextUtilsNumber.toKurdish(written.toString())} تۆمار هاوردە کرا ✓")
+            val goodsCount = goodsRows.size
+            emit(
+                "${TextUtilsNumber.toKurdish(written.toString())} تۆمار و " +
+                    "${TextUtilsNumber.toKurdish(goodsCount.toString())} کاڵا هاوردە کرا ✓",
+            )
             onDone(written)
             runSync(announce = false)
         }

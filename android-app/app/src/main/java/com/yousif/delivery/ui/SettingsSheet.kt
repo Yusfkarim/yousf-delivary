@@ -265,18 +265,18 @@ fun SettingsSheet(
                 )
             }
 
-            SectionHeader(text = "پاڵپشت (Export / Import)")
+            SectionHeader(text = "داتابەیس — ئێکسپۆرت و ئیمپۆرت")
 
             AppCard(padding = 14.dp) {
                 Text(
-                    text = "هەموو کڕیار و فرۆشگاکان لە فایلێکی JSON پاشەکەوت دەکرێن — دەتوانی لە Google Drive یان تێلێگرام هەڵیبگریت و لە مۆبایلێکی تر بیگەڕێنیتەوە.",
+                    text = "هەموو داتابەیسەکە — کڕیار، فرۆشگا و کاڵاکان — لە فایلێکی JSON پاشەکەوت دەکرێت. فایلەکە لە مۆبایلەکەت هەڵدەبژێریت، دەتوانی بۆ Google Drive یان تێلێگرام بنێریت و لە مۆبایلێکی تر بیگەڕێنیتەوە.",
                     color = colors.textSecondary,
                     fontSize = 12.5.sp,
                 )
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     PillButton(
-                        label = "هەناردەکردن",
+                        label = "ئێکسپۆرت",
                         onClick = { saveFile.launch(onExportName()) },
                         icon = AppIcons.share(),
                         container = colors.brand,
@@ -286,7 +286,7 @@ fun SettingsSheet(
                         fontSize = 13,
                     )
                     PillButton(
-                        label = "هاوردەکردن",
+                        label = "ئیمپۆرت",
                         onClick = { openFile.launch(arrayOf("application/json", "text/plain", "*/*")) },
                         icon = AppIcons.cloudDone(),
                         container = colors.brandSoft,

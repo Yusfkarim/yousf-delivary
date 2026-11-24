@@ -2,6 +2,7 @@ package com.yousif.delivery.util
 
 import com.yousif.delivery.data.Customer
 import com.yousif.delivery.data.ExtraPhone
+import com.yousif.delivery.data.GoodItem
 import com.yousif.delivery.data.Kinds
 import com.yousif.delivery.data.SyncStatus
 import com.google.gson.Gson
@@ -38,11 +39,24 @@ object BackupCodec {
         val hasViber: Boolean = false,
     )
 
+    /** «کاڵای کڕیار» travels in the same file. */
+    data class GoodEntry(
+        val id: String? = null,
+        val title: String? = null,
+        val quantity: Int = 1,
+        val note: String? = null,
+        val customerId: String? = null,
+        val customerName: String? = null,
+        val createdAt: Long = 0L,
+        val updatedAt: Long = 0L,
+    )
+
     data class Payload(
         val app: String = "yousif-delivery",
-        val schema: Int = 2,
+        val schema: Int = 3,
         val exportedAt: Long = System.currentTimeMillis(),
         val records: List<Entry>? = null,
+        val goods: List<GoodEntry>? = null,
     )
 
     private val gson: Gson = GsonBuilder().setPrettyPrinting().serializeNulls().create()
@@ -53,7 +67,7 @@ object BackupCodec {
         return "$FILE_PREFIX-$stamp.json"
     }
 
-    fun encode(records: List<Customer>): String {
+    fun encode(records: List<Customer>, goods: List<GoodItem> = emptyList()): String {
         val payload = Payload(
             records = records.map { customer ->
                 Entry(
@@ -73,8 +87,47 @@ object BackupCodec {
                     updatedAt = customer.updatedAt,
                 )
             },
+            goods = goods.map { item ->
+                GoodEntry(
+                    id = item.id,
+                    title = item.title,
+                    quantity = item.quantity,
+                    note = item.note,
+                    customerId = item.customerId,
+                    customerName = item.customerName,
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+                )
+            },
         )
         return gson.toJson(payload)
+    }
+
+    fun decodeGoods(json: String): List<GoodItem> {
+        val text = json.trim()
+        if (text.isEmpty() || text.startsWith("[")) return emptyList()
+        val payload = try {
+            gson.fromJson(text, Payload::class.java)
+        } catch (error: Exception) {
+            null
+        }
+        val now = System.currentTimeMillis()
+        var mediaSeq = 0
+        return payload?.goods.orEmpty().mapNotNull { entry ->
+            val title = entry.title?.trim().orEmpty()
+            if (title.isEmpty()) return@mapNotNull null
+            mediaSeq += 1
+            GoodItem(
+                id = entry.id?.takeIf { it.isNotBlank() } ?: java.util.UUID.randomUUID().toString(),
+                title = title,
+                quantity = entry.quantity.coerceIn(0, 9999),
+                note = entry.note?.trim().orEmpty(),
+                customerId = entry.customerId?.takeIf { it.isNotBlank() },
+                customerName = entry.customerName?.takeIf { it.isNotBlank() },
+                createdAt = if (entry.createdAt > 0) entry.createdAt else now + mediaSeq,
+                updatedAt = if (entry.updatedAt > 0) entry.updatedAt else now + mediaSeq,
+            )
+        }
     }
 
     fun decodeToCustomers(json: String): List<Customer> {
