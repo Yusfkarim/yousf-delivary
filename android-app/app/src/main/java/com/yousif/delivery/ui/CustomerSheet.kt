@@ -40,7 +40,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,6 +58,7 @@ import com.yousif.delivery.util.ClipboardUtils
 import com.yousif.delivery.util.IntentUtils
 import com.yousif.delivery.util.MapLinkParser
 import com.yousif.delivery.util.MapLinkResolver
+import com.yousif.delivery.util.PhoneUtils
 import com.yousif.delivery.util.TextUtils
 import com.yousif.delivery.viewmodel.LocationFix
 import kotlinx.coroutines.launch
@@ -181,9 +186,10 @@ fun CustomerSheet(
                 Spacer(Modifier.height(10.dp))
                 SheetField(
                     value = primaryPhone,
-                    onValueChange = { primaryPhone = it },
-                    placeholder = "ژمارەی سەرەکی (07xx xxx xxxx)",
+                    onValueChange = { primaryPhone = PhoneUtils.sanitizeInput(it) },
+                    placeholder = "ژمارەی سەرەکی — 0750 272 4374",
                     icon = AppIcons.call(),
+                    phone = true,
                 )
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -429,6 +435,7 @@ private fun SheetField(
     placeholder: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     trailing: (@Composable () -> Unit)? = null,
+    phone: Boolean = false,
 ) {
     val colors = LocalAppColors.current
     OutlinedTextField(
@@ -436,13 +443,22 @@ private fun SheetField(
         onValueChange = onValueChange,
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = if (phone) KeyboardType.Phone else KeyboardType.Text,
+        ),
         placeholder = { Text(placeholder, fontSize = 13.sp, color = colors.textMuted) },
         leadingIcon = {
             Icon(icon, contentDescription = null, tint = colors.textSecondary, modifier = Modifier.size(19.dp))
         },
         trailingIcon = trailing,
         shape = RoundedCornerShape(16.dp),
-        textStyle = TextStyle(fontSize = 14.5.sp, color = colors.textPrimary, fontWeight = FontWeight.Medium),
+        textStyle = TextStyle(
+            fontSize = 14.5.sp,
+            color = colors.textPrimary,
+            fontWeight = FontWeight.Medium,
+            textDirection = if (phone) TextDirection.Ltr else TextDirection.Content,
+            textAlign = TextAlign.Start,
+        ),
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = colors.surfaceSunken,
             unfocusedContainerColor = colors.surfaceSunken,
@@ -505,9 +521,10 @@ private fun ExtraPhoneRow(editor: ExtraPhoneEditor, onRemove: () -> Unit) {
             Box(Modifier.weight(1f)) {
                 SheetField(
                     value = editor.number,
-                    onValueChange = { editor.number = it },
+                    onValueChange = { editor.number = PhoneUtils.sanitizeInput(it) },
                     placeholder = "ژمارەی تر",
                     icon = AppIcons.call(),
+                    phone = true,
                 )
             }
             IconButton(onClick = onRemove) {

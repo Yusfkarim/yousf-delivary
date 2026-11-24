@@ -60,7 +60,7 @@ import com.yousif.delivery.util.TextUtils
 import com.yousif.delivery.util.hasLocationPermission
 import com.yousif.delivery.viewmodel.MainViewModel
 
-private enum class HomeTab { CUSTOMERS, SHOPS, MAP }
+private enum class HomeTab { CUSTOMERS, SHOPS, GOODS, MAP }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,6 +78,7 @@ fun HomeScreen(viewModel: MainViewModel) {
     val pending by viewModel.pendingCount.collectAsStateWithLifecycle()
     val myLocation by viewModel.myLocation.collectAsStateWithLifecycle()
     val baseUrl by viewModel.baseUrl.collectAsStateWithLifecycle()
+    val goods by viewModel.goods.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
 
     var tab by remember { mutableStateOf(HomeTab.CUSTOMERS) }
@@ -86,6 +87,8 @@ fun HomeScreen(viewModel: MainViewModel) {
     var routeTarget by remember { mutableStateOf<Customer?>(null) }
     var deleteTarget by remember { mutableStateOf<Customer?>(null) }
     var showSettings by remember { mutableStateOf(false) }
+    var showGoodSheet by remember { mutableStateOf(false) }
+    var editingGood by remember { mutableStateOf<com.yousif.delivery.data.GoodItem?>(null) }
     var prefill by remember { mutableStateOf<MapPoint?>(null) }
     var pendingGpsCallback by remember { mutableStateOf<((Double, Double) -> Unit)?>(null) }
 
@@ -244,6 +247,20 @@ fun HomeScreen(viewModel: MainViewModel) {
                     }
                 }
 
+                HomeTab.GOODS -> GoodsScreen(
+                    goods = goods,
+                    onBump = { item, delta -> viewModel.bumpGood(item, delta) },
+                    onEdit = { item ->
+                        editingGood = item
+                        showGoodSheet = true
+                    },
+                    onDelete = { item -> viewModel.deleteGood(item) },
+                    onAdd = {
+                        editingGood = null
+                        showGoodSheet = true
+                    },
+                )
+
                 HomeTab.MAP -> MapScreen(
                     customers = customers + shops,
                     myLocation = myLocation,
@@ -262,9 +279,14 @@ fun HomeScreen(viewModel: MainViewModel) {
                 tab = tab,
                 onTab = { tab = it },
                 onAdd = {
-                    editing = null
-                    prefill = null
-                    showSheet = true
+                    if (tab == HomeTab.GOODS) {
+                        editingGood = null
+                        showGoodSheet = true
+                    } else {
+                        editing = null
+                        prefill = null
+                        showSheet = true
+                    }
                 },
             )
         }
@@ -285,6 +307,23 @@ fun HomeScreen(viewModel: MainViewModel) {
                 viewModel.saveCustomer(draft) {
                     showSheet = false
                     prefill = null
+                }
+            },
+        )
+    }
+
+    if (showGoodSheet) {
+        GoodSheet(
+            initial = editingGood,
+            customers = customers,
+            onDismiss = {
+                showGoodSheet = false
+                editingGood = null
+            },
+            onSave = { item ->
+                viewModel.saveGood(item) {
+                    showGoodSheet = false
+                    editingGood = null
                 }
             },
         )
@@ -547,9 +586,9 @@ private fun HomeBottomBar(
             icon = AppIcons.plus(),
             container = colors.brand,
             contentColor = colors.onBrand,
-            modifier = Modifier.width(92.dp),
+            modifier = Modifier.width(74.dp),
             height = 48.dp,
-            fontSize = 14,
+            fontSize = 13,
         )
         Spacer(Modifier.width(4.dp))
         NavItem(
@@ -564,6 +603,12 @@ private fun HomeBottomBar(
             selected = tab == HomeTab.SHOPS,
             modifier = Modifier.weight(1f),
         ) { onTab(HomeTab.SHOPS) }
+        NavItem(
+            icon = AppIcons.packageBox(),
+            label = "کاڵا",
+            selected = tab == HomeTab.GOODS,
+            modifier = Modifier.weight(1f),
+        ) { onTab(HomeTab.GOODS) }
         NavItem(
             icon = AppIcons.map(),
             label = "نەخشە",

@@ -3,6 +3,8 @@ package com.yousif.delivery.ui
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -21,6 +24,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,6 +34,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -62,6 +67,7 @@ fun SettingsSheet(
     val colors = LocalAppColors.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var url by remember { mutableStateOf(baseUrl) }
+    var revealUrl by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -150,24 +156,61 @@ fun SettingsSheet(
                 onSelect = onThemeMode,
             )
 
-            SectionHeader(text = "نیشانی سێرڤەر (Vercel)")
+            SectionHeader(text = "سێرڤەر")
 
-            OutlinedTextField(
-                value = url,
-                onValueChange = { url = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                placeholder = { Text("https://…vercel.app", fontSize = 12.sp, color = colors.textMuted) },
-                shape = RoundedCornerShape(16.dp),
-                textStyle = TextStyle(fontSize = 13.sp, color = colors.textPrimary),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = colors.surface,
-                    unfocusedContainerColor = colors.surface,
-                    focusedBorderColor = colors.brand,
-                    unfocusedBorderColor = colors.border,
-                    cursorColor = colors.brand,
-                ),
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(colors.surfaceSunken)
+                    .border(1.dp, colors.border, RoundedCornerShape(16.dp))
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    AppIcons.lock(),
+                    contentDescription = null,
+                    tint = colors.brand,
+                    modifier = Modifier.size(17.dp),
+                )
+                Spacer(Modifier.width(9.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = com.yousif.delivery.util.ServerPrivacy.status(baseUrl),
+                        color = colors.textPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "ناونیشان و وشەی نهێنی بە نهێنی دەمێننەوە",
+                        color = colors.textMuted,
+                        fontSize = 10.5.sp,
+                    )
+                }
+                TextButton(onClick = { revealUrl = !revealUrl }) {
+                    Text(if (revealUrl) "داخستن" else "گۆڕین", color = colors.brandDeep, fontSize = 11.5.sp)
+                }
+            }
+
+            if (revealUrl) {
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = url,
+                    onValueChange = { url = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("https://…", fontSize = 12.sp, color = colors.textMuted) },
+                    shape = RoundedCornerShape(16.dp),
+                    textStyle = TextStyle(fontSize = 13.sp, color = colors.textPrimary),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = colors.surface,
+                        unfocusedContainerColor = colors.surface,
+                        focusedBorderColor = colors.brand,
+                        unfocusedBorderColor = colors.border,
+                        cursorColor = colors.brand,
+                    ),
+                )
+            }
 
             Spacer(Modifier.height(10.dp))
 
