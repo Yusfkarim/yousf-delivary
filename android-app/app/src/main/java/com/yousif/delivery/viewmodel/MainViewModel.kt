@@ -11,6 +11,7 @@ import com.yousif.delivery.BuildConfig
 import com.yousif.delivery.data.Customer
 import com.yousif.delivery.data.CustomerDraft
 import com.yousif.delivery.data.PushOutcome
+import com.yousif.delivery.data.SyncResult
 import com.yousif.delivery.data.SyncStatus
 import com.yousif.delivery.data.remote.ApiClient
 import com.yousif.delivery.location.LocationProvider
@@ -267,19 +268,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun runSync(announce: Boolean) {
         _syncing.value = true
-        val ok = repository.syncAll()
+        val result = repository.syncDetailed()
         _syncing.value = false
         if (announce) {
-            emit(
-                if (ok) {
-                    "هەموو داتاکان لەگەڵ سێرڤەر یەکسانن ✓"
-                } else if (!hasInternet()) {
-                    "چاوەڕوانی ئینتەرنێتە"
-                } else {
-                    "سێرڤەر وەڵامی نەدایەوە — ناونیشان/پاراستن بپشکنە"
-                },
-            )
+            emit(if (result.ok) "هەموو داتاکان لەگەڵ سێرڤەر یەکسانن ✓" else explainSync(result))
         }
+    }
+
+    /** Precise reason for a failed sync — never a single catch-all message. */
+    private fun explainSync(result: SyncResult): String = when {
+        result.code == ApiClient.CODE_PROTECTED ->
+            "سێرڤەر بە Vercel SSO پارێزراوە — Deployment Protection بکوژێنەرەوە"
+        result.code == ApiClient.CODE_OFFLINE && !hasInternet() -> "پەیوەندی بە ئینتەرنێتەوە نییە"
+        result.code == ApiClient.CODE_OFFLINE ->
+            "وەڵام نەهاتووە (کات تێپەڕی) — «پشکنینی سێرڤەر» دابگرە"
+        result.code == 200 -> "هەندێک گۆڕانکاری نەنێردرا — دووبارە هەوڵ بدە"
+        else -> explain(result.code)
     }
 
     // ── Server settings ─────────────────────────────────────────────────
