@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yousif.delivery.data.Customer
 import com.yousif.delivery.ui.icons.AppIcons
+import com.yousif.delivery.ui.map.MapStyle
 import com.yousif.delivery.ui.theme.LocalAppColors
 import com.yousif.delivery.util.TextUtils
 import com.yousif.delivery.viewmodel.LocationFix
@@ -47,11 +48,16 @@ fun MapScreen(
     Box(modifier.fillMaxSize()) {
         OsmMap(
             modifier = Modifier.fillMaxSize(),
-            center = closest?.let { MapPoint(it.latitude, it.longitude) },
-            zoom = 14.0,
+            center = if (pinned.size == 1) {
+                pinned.first().let { MapPoint(it.latitude, it.longitude) }
+            } else {
+                null
+            },
+            zoom = 15.0,
             me = myLocation?.let { MapPoint(it.latitude, it.longitude, "شوێنی من") },
             points = pinned.map { MapPoint(it.latitude, it.longitude, it.name) },
             allowStyleSwitch = true,
+            initialStyle = MapStyle.SATELLITE,
             onLocate = onLocate,
         )
 

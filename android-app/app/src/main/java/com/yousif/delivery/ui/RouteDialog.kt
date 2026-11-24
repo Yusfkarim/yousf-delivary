@@ -127,7 +127,7 @@ fun RouteDialog(
                     )
                     InfoRow(
                         "کۆردینات",
-                        TextUtils.coordinates(customer.latitude, customer.longitude),
+                        TextUtils.coordinatesDisplay(customer.latitude, customer.longitude),
                         valueColor = colors.textSecondary,
                         valueWeight = FontWeight.Medium,
                     )
@@ -201,7 +201,7 @@ fun RouteDialog(
                                 IntentUtils.copyToClipboard(
                                     context,
                                     "coordinates",
-                                    TextUtils.coordinates(customer.latitude, customer.longitude),
+                                    TextUtils.coordinatesDisplay(customer.latitude, customer.longitude),
                                 )
                                 IntentUtils.toast(context, "کۆردینات کۆپی کرا")
                             },

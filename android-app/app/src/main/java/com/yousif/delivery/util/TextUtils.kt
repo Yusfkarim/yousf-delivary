@@ -39,6 +39,16 @@ object TextUtils {
     fun coordinates(latitude: Double, longitude: Double): String =
         String.format(Locale.US, "%.6f, %.6f", latitude, longitude)
 
+    /**
+     * Kurdish is right-to-left, so a bare "35.1, 45.6" is re-ordered by bidi and
+     * reads as if latitude and longitude were swapped. Isolating the run keeps
+     * numbers left-to-right, exactly as they are typed.
+     */
+    fun ltr(text: String): String = "\u202A$text\u202C"
+
+    fun coordinatesDisplay(latitude: Double, longitude: Double): String =
+        ltr(coordinates(latitude, longitude))
+
     fun relativeTime(timestamp: Long): String {
         val diff = abs(System.currentTimeMillis() - timestamp)
         return when {

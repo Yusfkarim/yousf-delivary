@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit
 /** The looks the driver can pick from inside the map. */
 enum class MapStyle(val label: String) {
     STREET("شەقام"),
-    LIGHT("ڕووناک"),
+    SATELLITE("سەتەلایت"),
     DARK("شەو"),
     ;
 
@@ -42,6 +42,7 @@ class TemplateTileSource(
             .replace("{z}", zoom.toString())
             .replace("{x}", x.toString())
             .replace("{y}", y.toString())
+            .replace("{s}", ((x + y) % 4).toString())
     }
 }
 
@@ -55,6 +56,13 @@ object TileSources {
     )
 
     /** CARTO's pale basemap — the "clean" light look of the design. */
+    /** Satellite imagery (the style the driver asked for on the map). */
+    private val satellite = TemplateTileSource(
+        name = "GoogleSatellite",
+        template = "https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+        copyright = "© Google",
+    )
+
     private val cartoLight = TemplateTileSource(
         name = "CartoLight",
         template = "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
@@ -77,13 +85,13 @@ object TileSources {
 
     fun forStyle(style: MapStyle, dark: Boolean): OnlineTileSourceBase = when (style) {
         MapStyle.DARK -> cartoDark
-        MapStyle.LIGHT -> cartoLight
+        MapStyle.SATELLITE -> satellite
         MapStyle.STREET -> if (dark) cartoDark else preferredStreet
     }
 
     fun attribution(style: MapStyle, dark: Boolean): String = when (style) {
         MapStyle.DARK -> "© OpenStreetMap · © CARTO"
-        MapStyle.LIGHT -> "© OpenStreetMap · © CARTO"
+        MapStyle.SATELLITE -> "© Google Imagery"
         MapStyle.STREET -> if (dark) "© OpenStreetMap · © CARTO" else "© OpenStreetMap contributors"
     }
 

@@ -25,10 +25,10 @@ object PhoneUtils {
         return if (normalized.startsWith("964")) "0" + normalized.substring(3) else digits(raw)
     }
 
-    /** Pretty grouping for display: 0750 123 4567 */
+    /** Pretty grouping for display: 0750 123 4567 (kept left-to-right). */
     fun pretty(raw: String): String {
         val localForm = local(raw)
-        if (localForm.length < 8) return raw
-        return localForm.chunked(4).joinToString(" ")
+        if (localForm.length < 8) return TextUtils.ltr(raw)
+        return TextUtils.ltr(localForm.chunked(4).joinToString(" "))
     }
 }
