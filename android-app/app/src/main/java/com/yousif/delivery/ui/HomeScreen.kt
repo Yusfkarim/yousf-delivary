@@ -163,8 +163,8 @@ fun HomeScreen(viewModel: MainViewModel) {
                         StatPill(
                             text = TextUtils.toKurdish(customers.size.toString()) + " کڕیار",
                             icon = AppIcons.user(),
-                            tint = colors.brandDeep,
-                            soft = colors.brandSoft,
+                            tint = colors.onBrand,
+                            soft = colors.brand,
                         )
                     }
 
@@ -386,7 +386,7 @@ private fun HomeHeader(
                 modifier = Modifier
                     .clip(RoundedCornerShape(50))
                     .background(colors.surface)
-                    .border(1.dp, colors.border, RoundedCornerShape(50))
+                    .border(1.dp, colors.brand.copy(alpha = 0.35f), RoundedCornerShape(50))
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -403,7 +403,8 @@ private fun HomeHeader(
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(50))
-                    .background(colors.surfaceAlt)
+                    .background(colors.surface)
+                    .border(1.dp, colors.brand.copy(alpha = 0.35f), RoundedCornerShape(50))
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
