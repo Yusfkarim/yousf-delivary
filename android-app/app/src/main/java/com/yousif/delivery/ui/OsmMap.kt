@@ -61,7 +61,8 @@ private val DarkTiles: XYTileSource by lazy {
             "https://c.basemaps.cartocdn.com/dark_all/",
             "https://d.basemaps.cartocdn.com/dark_all/",
         ),
-    ).apply { setCopyrightNotice("© OpenStreetMap · © CARTO") }
+        "© OpenStreetMap · © CARTO",
+    )
 }
 
 private val MAP_BACKGROUND = 0xFF0F1622.toInt()
