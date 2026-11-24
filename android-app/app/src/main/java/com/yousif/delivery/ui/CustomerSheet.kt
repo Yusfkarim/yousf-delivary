@@ -98,7 +98,7 @@ fun CustomerSheet(
     var longitude by remember {
         mutableStateOf(initial?.longitude?.takeIf { it != 0.0 } ?: prefill?.longitude)
     }
-    var pasteField by remember { mutableStateOf("") }
+    var clipLink by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var showPicker by remember { mutableStateOf(false) }
     var showLink by remember { mutableStateOf(false) }
@@ -125,13 +125,12 @@ fun CustomerSheet(
         error = null
     }
 
-    // A maps link already sitting in the clipboard is offered inside the link dialog.
+    // If a maps link is already on the clipboard it pre-fills the link dialog.
+    // It is never applied on its own: a link is a saved pin, not a GPS fix.
     LaunchedEffect(Unit) {
         if (initial != null || latitude != null) return@LaunchedEffect
         val clip = ClipboardUtils.text(context)
-        if (clip != null && MapLinkResolver.hasLink(clip) && pasteField.isBlank()) {
-            pasteField = clip
-        }
+        if (clip != null) clipLink = MapLinkResolver.firstLink(clip).orEmpty()
     }
 
     ModalBottomSheet(
@@ -304,11 +303,10 @@ fun CustomerSheet(
 
             if (showLink) {
                 MapLinkDialog(
-                    initialText = pasteField,
+                    initialText = clipLink,
                     onDismiss = { showLink = false },
                     onPick = { lat, lng ->
                         applyCoordinates(lat, lng)
-                        pasteField = TextUtils.coordinates(lat, lng)
                         showLink = false
                     },
                 )
