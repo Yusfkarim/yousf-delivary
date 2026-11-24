@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.yousif.delivery.ui.icons.AppIcons
 import com.yousif.delivery.BuildConfig
 import com.yousif.delivery.ui.theme.AppBackground
 import com.yousif.delivery.ui.theme.AppDanger
@@ -88,7 +89,7 @@ fun LockScreen(viewModel: MainViewModel) {
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    Icons.Filled.Place,
+                    AppIcons.pin(),
                     contentDescription = null,
                     tint = NeonCyan,
                     modifier = Modifier.size(44.dp),
@@ -120,7 +121,7 @@ fun LockScreen(viewModel: MainViewModel) {
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 label = { Text("وشەی نهێنی") },
-                leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null) },
+                leadingIcon = { Icon(AppIcons.lock(), contentDescription = null) },
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
