@@ -46,22 +46,35 @@ fun GlassCard(
     val colors = LocalAppColors.current
     val shape = RoundedCornerShape(radius)
     val fill = if (colors.isDark) {
-        Brush.linearGradient(listOf(Color(0xFF2A211C), Color(0xFF1D1714)))
+        Brush.linearGradient(listOf(Color(0xFF2C221C), Color(0xFF1C1613)))
     } else {
-        Brush.linearGradient(listOf(Color(0xFFFFFFFF), Color(0xFFFFF4E9)))
+        Brush.linearGradient(listOf(Color(0xFFFFFFFF), Color(0xFFFFF3E7)))
     }
-    val line = if (colors.isDark) Color(0xFF3E3028) else Color(0xFFFFFFFF)
-    val glow = if (colors.isDark) Color(0x33000000) else Color(0x1FA57A54)
+    val line = if (colors.isDark) Color(0xFF40322A) else Color(0xFFFFFFFF)
+    val glow = if (colors.isDark) Color(0x44000000) else Color(0x24A57A54)
+    val sheen = if (colors.isDark) Color(0x14FFD9B8) else Color(0x99FFFFFF)
 
     val base = modifier
         .fillMaxWidth()
-        .shadow(12.dp, shape, clip = false, ambientColor = glow, spotColor = glow)
+        .shadow(14.dp, shape, clip = false, ambientColor = glow, spotColor = glow)
         .clip(shape)
         .background(fill)
         .border(1.dp, line, shape)
 
-    Column((if (onClick != null) base.clickable(onClick = onClick) else base).padding(padding)) {
-        content()
+    Box(if (onClick != null) base.clickable(onClick = onClick) else base) {
+        Column(Modifier.padding(padding)) { content() }
+        // A hairline of light along the top edge — the glass «refraction».
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth(0.82f)
+                .height(1.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color.Transparent, sheen, Color.Transparent),
+                    ),
+                ),
+        )
     }
 }
 

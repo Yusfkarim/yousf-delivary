@@ -12,6 +12,7 @@ import com.yousif.delivery.data.Customer
 import com.yousif.delivery.data.CustomerDraft
 import com.yousif.delivery.data.GoodEntity
 import com.yousif.delivery.data.GoodItem
+import com.yousif.delivery.data.ImportReport
 import com.yousif.delivery.data.toDomain
 import com.yousif.delivery.data.toEntity
 import com.yousif.delivery.data.PushOutcome
@@ -344,15 +345,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun backupFileName(): String = com.yousif.delivery.util.BackupCodec.fileName()
 
-    /** Restores a backup file, then pushes everything to the server. */
-    fun importBackup(json: String, onDone: (Int) -> Unit = {}) {
+    /**
+     * Restores a backup file, then pushes everything to the server.
+     *
+     * Importing the very same file twice never duplicates anything: a record that
+     * already exists under the same id is replaced, and two copies of the same
+     * person (same name + phone) are folded into one and the leftover id is
+     * deleted on the server too. The callback carries the exact numbers so the
+     * driver can see what happened.
+     */
+    fun importBackup(json: String, onDone: (ImportReport) -> Unit = {}) {
         viewModelScope.launch {
             val records = withContext(Dispatchers.IO) {
                 com.yousif.delivery.util.BackupCodec.decodeToCustomers(json)
             }
             if (records.isEmpty()) {
                 emit("فایلەکە نەخوێندرایەوە یان هیچ تۆمارێکی تێدا نییە")
-                onDone(0)
+                onDone(ImportReport())
                 return@launch
             }
             val goodsRows = withContext(Dispatchers.IO) {
@@ -361,14 +370,43 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (goodsRows.isNotEmpty()) {
                 withContext(Dispatchers.IO) { goodDao.upsertAll(goodsRows) }
             }
-            val written = repository.importRecords(records)
-            val goodsCount = goodsRows.size
-            emit(
-                "${TextUtilsNumber.toKurdish(written.toString())} تۆمار و " +
-                    "${TextUtilsNumber.toKurdish(goodsCount.toString())} کاڵا هاوردە کرا ✓",
-            )
-            onDone(written)
+            _busy.value = true
+            val report = repository.importRecords(records).copy(goods = goodsRows.size)
+            _busy.value = false
+            emit(importMessage(report))
+            onDone(report)
             runSync(announce = false)
+        }
+    }
+
+    /** Folds duplicate copies (same name + phone) into one, locally and on the server. */
+    fun dedupeRecords(onDone: (Int) -> Unit = {}) {
+        viewModelScope.launch {
+            _busy.value = true
+            val merged = withContext(Dispatchers.IO) { repository.mergeDuplicates() }
+            _busy.value = false
+            emit(
+                if (merged > 0) {
+                    "${TextUtilsNumber.toKurdish(merged.toString())} دووبارە یەکخرا و لە سێرڤەریش پاککرایەوە ✓"
+                } else {
+                    "هیچ تۆمارێکی دووبارە نەدۆزرایەوە ✓"
+                },
+            )
+            onDone(merged)
+            if (merged > 0) runSync(announce = false)
+        }
+    }
+
+    private fun importMessage(report: ImportReport): String {
+        val parts = mutableListOf<String>()
+        if (report.added > 0) parts += "نوێ ${TextUtilsNumber.toKurdish(report.added.toString())}"
+        if (report.updated > 0) parts += "نوێکرایەوە ${TextUtilsNumber.toKurdish(report.updated.toString())}"
+        if (report.merged > 0) parts += "دووبارە یەکخرا ${TextUtilsNumber.toKurdish(report.merged.toString())}"
+        if (report.goods > 0) parts += "کاڵا ${TextUtilsNumber.toKurdish(report.goods.toString())}"
+        return if (parts.isEmpty()) {
+            "هیچ گۆڕانکارییەک پێویست نەبوو — داتابەیس پێشتر نوێ بوو ✓"
+        } else {
+            "هاوردەکردن تەواو بوو · ${parts.joinToString(" · ")} ✓"
         }
     }
 

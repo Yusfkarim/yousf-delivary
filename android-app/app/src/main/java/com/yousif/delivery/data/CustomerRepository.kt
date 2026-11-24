@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
 /**
  * Result of a full sync. Carries the HTTP code so the UI can explain *why* a
@@ -20,6 +21,23 @@ data class SyncResult(
     val code: Int = 200,
     val message: String? = null,
 )
+
+/** What an import actually did — the driver is told exactly what happened. */
+data class ImportReport(
+    /** Brand-new records written to the phone. */
+    val added: Int = 0,
+    /** Records that already existed and were replaced by the newer copy. */
+    val updated: Int = 0,
+    /** Copies that were older than what the phone already had. */
+    val skipped: Int = 0,
+    /** Duplicate copies folded into one (and removed from the server too). */
+    val merged: Int = 0,
+    /** Goods rows carried by the same file. */
+    val goods: Int = 0,
+) {
+    val written: Int get() = added + updated
+    val untouched: Boolean get() = added == 0 && updated == 0 && merged == 0 && goods == 0
+}
 
 /**
  * Room-first repository:
@@ -43,21 +61,96 @@ class CustomerRepository(
     }
 
     /**
-     * Merges a backup file into Room. The freshest copy wins, so importing an
-     * old backup never overwrites something edited later on this phone.
+     * Merges a backup file into Room, then folds every duplicate away.
+     *
+     * A record that already existed under the same id is **replaced** (never
+     * copied twice), and two records that describe the same person under
+     * different ids are merged into one. The merged-away ids are deleted on the
+     * server as well, so a second import of the same file cannot leave the
+     * database with two of everything.
      */
-    suspend fun importRecords(records: List<Customer>): Int = withContext(Dispatchers.IO) {
-        if (records.isEmpty()) return@withContext 0
-        val local = dao.allOnce().associateBy { it.id }
-        val toWrite = records.filter { incoming ->
+    suspend fun importRecords(records: List<Customer>): ImportReport = withContext(Dispatchers.IO) {
+        if (records.isEmpty()) return@withContext ImportReport()
+        val local = dao.allOnce()
+            .filter { it.syncStatus != SyncStatus.PENDING_DELETE.name }
+            .associateBy { it.id }
+
+        var added = 0
+        var updated = 0
+        var skipped = 0
+        val toWrite = mutableListOf<CustomerEntity>()
+
+        records.forEach { incoming ->
             val existing = local[incoming.id]
-            existing == null || incoming.updatedAt >= existing.updatedAt
+            when {
+                existing == null -> {
+                    added += 1
+                    toWrite += incoming.copy(syncStatus = SyncStatus.PENDING_UPSERT).toEntity()
+                }
+
+                incoming.updatedAt >= existing.updatedAt -> {
+                    updated += 1
+                    toWrite += incoming.copy(syncStatus = SyncStatus.PENDING_UPSERT).toEntity()
+                }
+
+                else -> skipped += 1
+            }
         }
+
         if (toWrite.isNotEmpty()) {
-            dao.upsertAll(toWrite.map { it.copy(syncStatus = SyncStatus.PENDING_UPSERT).toEntity() })
+            dao.upsertAll(toWrite)
             pushPending()
         }
-        toWrite.size
+
+        ImportReport(added = added, updated = updated, skipped = skipped, merged = mergeDuplicates())
+    }
+
+    /**
+     * Finds records that describe the same person (same name and same phone) and
+     * keeps the richest copy — extra phones, the location and the note of the
+     * others are folded in, and the leftover copies are deleted everywhere.
+     */
+    suspend fun mergeDuplicates(): Int = withContext(Dispatchers.IO) {
+        val all = dao.allOnce()
+            .filter { it.syncStatus != SyncStatus.PENDING_DELETE.name }
+            .map { it.toDomain() }
+        if (all.size < 2) return@withContext 0
+
+        val groups = LinkedHashMap<String, MutableList<Customer>>()
+        all.forEach { customer ->
+            groups.getOrPut(duplicateKey(customer)) { mutableListOf() }.add(customer)
+        }
+
+        var merged = 0
+        val survivors = mutableListOf<Customer>()
+        val duplicates = mutableListOf<Customer>()
+        groups.values.forEach { group ->
+            if (group.size < 2) return@forEach
+            val ordered = group.sortedWith(
+                compareByDescending<Customer> { richness(it) }.thenBy { it.createdAt },
+            )
+            var survivor = ordered.first()
+            ordered.drop(1).forEach { other ->
+                survivor = fold(survivor, other)
+                duplicates += other
+                merged += 1
+            }
+            survivors += survivor
+        }
+
+        if (merged == 0) return@withContext 0
+
+        val now = System.currentTimeMillis()
+        dao.upsertAll(
+            survivors.map {
+                it.copy(updatedAt = now, syncStatus = SyncStatus.PENDING_UPSERT).toEntity()
+            },
+        )
+        duplicates.forEach {
+            dao.upsert(it.copy(syncStatus = SyncStatus.PENDING_DELETE).toEntity())
+        }
+        pushPending()
+        merged
     }
 
     suspend fun save(customer: Customer): PushOutcome = withContext(Dispatchers.IO) {
@@ -90,6 +183,7 @@ class CustomerRepository(
 
     suspend fun pushPending(): Boolean = withContext(Dispatchers.IO) {
         var allSynced = true
+        var failures = 0
         for (entity in dao.pending()) {
             val status = runCatching { SyncStatus.valueOf(entity.syncStatus) }
                 .getOrDefault(SyncStatus.SYNCED)
@@ -97,7 +191,13 @@ class CustomerRepository(
                 SyncStatus.PENDING_DELETE -> pushDelete(entity.id)
                 else -> pushSingle(entity.toDomain())
             }
-            if (outcome != PushOutcome.SYNCED) allSynced = false
+            if (outcome != PushOutcome.SYNCED) {
+                allSynced = false
+                failures += 1
+                // No network: stop after two tries instead of waiting a timeout per
+                // record — the rows stay pending and WorkManager retries later.
+                if (failures >= 2) break
+            }
         }
         allSynced
     }
@@ -152,4 +252,41 @@ class CustomerRepository(
         SyncScheduler.schedule(context)
         return if (result.code == 401) PushOutcome.UNAUTHORIZED else PushOutcome.PENDING
     }
+
+    /** Same name + same phone ⇒ the same person, imported twice. */
+    private fun duplicateKey(customer: Customer): String {
+        val name = customer.name.trim()
+            .lowercase(Locale.ROOT)
+            .replace(multipleSpaces, " ")
+        val phone = customer.allPhones
+            .map { number -> number.filter(Char::isDigit) }
+            .firstOrNull { digits -> digits.length >= 7 }
+            ?.takeLast(9)
+            .orEmpty()
+        return "$name|$phone"
+    }
+
+    private fun richness(customer: Customer): Int =
+        (if (customer.hasCoordinates) 4 else 0) +
+            (if (customer.primaryPhone.isNotBlank()) 2 else 0) +
+            (if (customer.addressNote.isNotBlank()) 1 else 0) +
+            customer.extraPhones.size +
+            (if (customer.name.length > 4) 1 else 0)
+
+    private fun fold(primary: Customer, other: Customer): Customer = primary.copy(
+        primaryPhone = primary.primaryPhone.ifBlank { other.primaryPhone },
+        hasWhatsapp = primary.hasWhatsapp || other.hasWhatsapp,
+        hasViber = primary.hasViber || other.hasViber,
+        extraPhones = (primary.extraPhones + other.extraPhones)
+            .filter { it.number.isNotBlank() }
+            .distinctBy { it.number.filter(Char::isDigit).takeLast(9) },
+        latitude = if (primary.hasCoordinates) primary.latitude else other.latitude,
+        longitude = if (primary.hasCoordinates) primary.longitude else other.longitude,
+        addressNote = primary.addressNote.ifBlank { other.addressNote },
+        createdAt = minOf(primary.createdAt, other.createdAt),
+        updatedAt = maxOf(primary.updatedAt, other.updatedAt),
+        syncStatus = SyncStatus.PENDING_UPSERT,
+    )
 }
+
+private val multipleSpaces = Regex("\\s+")
