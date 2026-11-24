@@ -73,8 +73,14 @@ interface GoodDao {
     @Query("SELECT * FROM goods ORDER BY updatedAt DESC")
     fun observeAll(): Flow<List<GoodEntity>>
 
+    @Query("SELECT * FROM goods")
+    suspend fun allOnce(): List<GoodEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: GoodEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(entities: List<GoodEntity>)
 
     @Query("DELETE FROM goods WHERE id = :id")
     suspend fun delete(id: String)
