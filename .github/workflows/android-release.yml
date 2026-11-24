@@ -1,0 +1,139 @@
+name: Android Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version name (optional, defaults to versionName in build.gradle.kts)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build & publish APK
+    runs-on: ubuntu-latest
+    env:
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'yousif' }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'yousif12345' }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'yousif12345' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Install Android platform
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" > /dev/null
+
+      - name: Restore signing keystore
+        uses: actions/cache@v4
+        with:
+          path: android-app/keystore
+          key: yousif-release-keystore-v1
+
+      - name: Prepare signing keystore
+        working-directory: android-app
+        run: |
+          mkdir -p keystore
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "Using keystore from repository secrets"
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore/yousif-release.jks
+          elif [ ! -f keystore/yousif-release.jks ]; then
+            echo "Generating a persistent signing keystore"
+            keytool -genkeypair -v \
+              -keystore keystore/yousif-release.jks \
+              -alias "$KEY_ALIAS" \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storetype PKCS12 \
+              -storepass "$KEYSTORE_PASSWORD" \
+              -keypass "$KEY_PASSWORD" \
+              -dname "CN=Yousif Delivery, OU=Courier, O=Yousif, L=Sulaymaniyah, C=IQ"
+          fi
+          ls -l keystore
+
+      - name: Build release APK
+        working-directory: android-app
+        run: gradle :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Resolve version
+        id: version
+        working-directory: android-app
+        run: |
+          NAME_FROM_GRADLE=$(grep -m1 'versionName = ' app/build.gradle.kts | sed 's/.*versionName = "\(.*\)".*/\1/')
+          CODE_FROM_GRADLE=$(grep -m1 'versionCode = ' app/build.gradle.kts | sed 's/.*versionCode = \(.*\)/\1/')
+          VERSION_NAME="$NAME_FROM_GRADLE"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION_NAME="${GITHUB_REF_NAME#v}"
+          elif [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION_NAME="${{ github.event.inputs.version }}"
+          fi
+          echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE_FROM_GRADLE" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION_NAME ($CODE_FROM_GRADLE)"
+
+      - name: Collect APK
+        run: |
+          mkdir -p dist
+          cp android-app/app/build/outputs/apk/release/app-release.apk \
+             "dist/YousifDelivery-v${{ steps.version.outputs.name }}.apk"
+          ls -lh dist
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: YousifDelivery-v${{ steps.version.outputs.name }}
+          path: dist/*.apk
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'push' && github.ref_name || format('v{0}', steps.version.outputs.name) }}
+          name: یوسف دلیڤەری v${{ steps.version.outputs.name }}
+          files: dist/*.apk
+          generate_release_notes: false
+          body: |
+            ## یوسف دلیڤەری v${{ steps.version.outputs.name }} (${{ steps.version.outputs.code }})
+
+            فایلی دامەزراندن: **YousifDelivery-v${{ steps.version.outputs.name }}.apk**
+
+            ### چی لەم وەشانەدا هەیە
+            - ئەپی ناتیڤی کوردی (Kotlin + Jetpack Compose، RTL) بۆ شۆفێرێکی تاک
+            - قفڵی وشەی نهێنی (`x-app-password`) لەسەر هەموو داواکارییەکانی سێرڤەر
+            - هەڵگرتنی ناوخۆیی بە Room + هاوکاتکردنی خۆکار بە WorkManager
+            - نەخشەی OpenStreetMap (osmdroid) بێ هیچ API Key
+            - Haversine دووری، GPS ڕاستەقینە، پەیوەندی / واتسئەپ / ڤایبەر
+            - پاڵپشتی `google.navigation:` بۆ Google Maps
+
+            ### دامەزراندن
+            1. فایلی APK دابەزێنە
+            2. لە مۆبایل «ڕێگەدان بە سەرچاوەی نەناسراو» چالاک بکە
+            3. دامەزراندن → وشەی نهێنی → چوونەژوورەوە
+
+            > ئەگەر وەشانێکی کۆنت دامەزراندووە، هەمان keystore بەکارهاتووە،
+            > بۆیە دەتوانیت بەسەرەوە دایبمەزرێنیت بەبێ سڕینەوەی داتا.
