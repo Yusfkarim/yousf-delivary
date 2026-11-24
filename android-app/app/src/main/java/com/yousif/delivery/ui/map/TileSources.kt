@@ -63,6 +63,16 @@ object TileSources {
         copyright = "© Google",
     )
 
+    /**
+     * Esri's World Imagery — the backup that keeps the map filled when Google's
+     * hosts answer slowly or refuse a tile. Different host, different CDN.
+     */
+    private val esriSatellite = TemplateTileSource(
+        name = "EsriWorldImagery",
+        template = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        copyright = "© Esri, Maxar, Earthstar Geographics",
+    )
+
     private val cartoLight = TemplateTileSource(
         name = "CartoLight",
         template = "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
@@ -87,6 +97,23 @@ object TileSources {
     fun urlFor(style: MapStyle, dark: Boolean, zoom: Int, x: Int, y: Int): String =
         forStyle(style, dark).getTileURLString(MapTileIndex.getTileIndex(zoom, x, y))
 
+    /**
+     * Every provider that can serve this tile, best first.
+     *
+     * Satellite has two independent hosts, so a tile that Google refuses is
+     * fetched from Esri instead of leaving a blank cream square on the map.
+     */
+    fun urlsFor(style: MapStyle, dark: Boolean, zoom: Int, x: Int, y: Int): List<String> {
+        val index = MapTileIndex.getTileIndex(zoom, x, y)
+        return when {
+            style == MapStyle.SATELLITE -> listOf(
+                satellite.getTileURLString(index),
+                esriSatellite.getTileURLString(index),
+            )
+            else -> listOf(forStyle(style, dark).getTileURLString(index))
+        }
+    }
+
     fun forStyle(style: MapStyle, dark: Boolean): OnlineTileSourceBase = when (style) {
         MapStyle.DARK -> cartoDark
         MapStyle.SATELLITE -> satellite
@@ -95,7 +122,7 @@ object TileSources {
 
     fun attribution(style: MapStyle, dark: Boolean): String = when (style) {
         MapStyle.DARK -> "© OpenStreetMap · © CARTO"
-        MapStyle.SATELLITE -> "© Google Imagery"
+        MapStyle.SATELLITE -> "© Google · © Esri Imagery"
         MapStyle.STREET -> if (dark) "© OpenStreetMap · © CARTO" else "© OpenStreetMap contributors"
     }
 

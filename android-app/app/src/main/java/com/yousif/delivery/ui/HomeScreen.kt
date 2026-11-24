@@ -89,6 +89,8 @@ fun HomeScreen(viewModel: MainViewModel) {
     var showSettings by remember { mutableStateOf(false) }
     var showGoodSheet by remember { mutableStateOf(false) }
     var editingGood by remember { mutableStateOf<com.yousif.delivery.data.GoodItem?>(null) }
+    var presetCustomerId by remember { mutableStateOf<String?>(null) }
+    var presetCustomerName by remember { mutableStateOf<String?>(null) }
     var prefill by remember { mutableStateOf<MapPoint?>(null) }
     var pendingGpsCallback by remember { mutableStateOf<((Double, Double) -> Unit)?>(null) }
 
@@ -254,11 +256,15 @@ fun HomeScreen(viewModel: MainViewModel) {
                     people = everyone,
                     onBump = { item, delta -> viewModel.bumpGood(item, delta) },
                     onEdit = { item ->
+                        presetCustomerId = null
+                        presetCustomerName = null
                         editingGood = item
                         showGoodSheet = true
                     },
                     onDelete = { item -> viewModel.deleteGood(item) },
-                    onAdd = {
+                    onAddFor = { customerId, customerName ->
+                        presetCustomerId = customerId
+                        presetCustomerName = customerName
                         editingGood = null
                         showGoodSheet = true
                     },
@@ -289,6 +295,8 @@ fun HomeScreen(viewModel: MainViewModel) {
                 onAdd = {
                     if (tab == HomeTab.GOODS) {
                         editingGood = null
+                        presetCustomerId = null
+                        presetCustomerName = null
                         showGoodSheet = true
                     } else {
                         editing = null
@@ -324,14 +332,20 @@ fun HomeScreen(viewModel: MainViewModel) {
         GoodSheet(
             initial = editingGood,
             customers = customers,
+            presetCustomerId = presetCustomerId,
+            presetCustomerName = presetCustomerName,
             onDismiss = {
                 showGoodSheet = false
                 editingGood = null
+                presetCustomerId = null
+                presetCustomerName = null
             },
             onSave = { items ->
                 viewModel.saveGoods(items) {
                     showGoodSheet = false
                     editingGood = null
+                    presetCustomerId = null
+                    presetCustomerName = null
                 }
             },
         )

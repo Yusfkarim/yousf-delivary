@@ -150,7 +150,7 @@ fun TileMap(
     val tapHandler by rememberUpdatedState(onTap)
     val pinHandler by rememberUpdatedState(onPinTap)
 
-    val placeholder = if (colors.isDark) Color(0xFF15100D) else Color(0xFFEFE6DC)
+    val placeholder = if (colors.isDark) Color(0xFF17120E) else Color(0xFFE4DBD1)
 
     BoxWithConstraints(modifier.background(placeholder)) {
         val widthPx = constraints.maxWidth
@@ -166,37 +166,49 @@ fun TileMap(
             state.moveTo(fit.latitude, fit.longitude)
         }
 
-        // One lightweight pump: whatever is missing for the current view, no more.
+        // One lightweight pump: the coarse base layer plus the exact tiles, no more.
         LaunchedEffect(style, colors.isDark, widthPx, heightPx) {
             while (true) {
                 if (widthPx > 0 && heightPx > 0) {
                     val geometry = state.geometry(widthPx, heightPx)
-                    val count = 1 shl geometry.tileZoom
-                    val firstX = floor(geometry.leftWorld / geometry.tileSize).toInt() - 1
-                    val lastX = ceil((geometry.leftWorld + widthPx) / geometry.tileSize).toInt() + 1
-                    val firstY = floor(geometry.topWorld / geometry.tileSize).toInt() - 1
-                    val lastY = ceil((geometry.topWorld + heightPx) / geometry.tileSize).toInt() + 1
-                    for (tileY in firstY..lastY) {
-                        if (tileY < 0 || tileY >= count) continue
-                        for (tileX in firstX..lastX) {
-                            val wrapped = ((tileX % count) + count) % count
-                            val url = TileSources.urlFor(style, colors.isDark, geometry.tileZoom, wrapped, tileY)
-                            if (TileCache.cached(url) != null) {
-                                loaded = true
-                                continue
-                            }
-                            if (!TileCache.claim(url)) continue
-                            launch(Dispatchers.IO) {
-                                try {
-                                    if (TileCache.load(url) != null) loaded = true
-                                } finally {
-                                    TileCache.release(url)
+                    val layers = listOf(
+                        (geometry.tileZoom - 2).coerceAtLeast(2) to geometry.tileSize * 4.0,
+                        geometry.tileZoom to geometry.tileSize,
+                    )
+                    for ((zoom, sizePx) in layers) {
+                        val count = 1 shl zoom
+                        val firstX = floor(geometry.leftWorld / sizePx).toInt() - 1
+                        val lastX = ceil((geometry.leftWorld + widthPx) / sizePx).toInt() + 1
+                        val firstY = floor(geometry.topWorld / sizePx).toInt() - 1
+                        val lastY = ceil((geometry.topWorld + heightPx) / sizePx).toInt() + 1
+                        for (tileY in firstY..lastY) {
+                            if (tileY < 0 || tileY >= count) continue
+                            for (tileX in firstX..lastX) {
+                                val wrapped = ((tileX % count) + count) % count
+                                val urls = TileSources.urlsFor(style, colors.isDark, zoom, wrapped, tileY)
+                                for ((index, url) in urls.withIndex()) {
+                                    if (TileCache.cached(url) != null) {
+                                        loaded = true
+                                        break
+                                    }
+                                    // Only ask the backup provider once the first one
+                                    // has actually failed — no double downloads.
+                                    if (index > 0 && !TileCache.coolingDown(urls[index - 1])) break
+                                    if (!TileCache.claim(url)) break
+                                    launch(Dispatchers.IO) {
+                                        try {
+                                            if (TileCache.load(url) != null) loaded = true
+                                        } finally {
+                                            TileCache.release(url)
+                                        }
+                                    }
+                                    break
                                 }
                             }
                         }
                     }
                 }
-                delay(80)
+                delay(70)
             }
         }
 
@@ -245,7 +257,7 @@ fun TileMap(
                         detectTapGestures(
                             onTap = { offset ->
                                 val geometry = state.geometry(widthPx, heightPx)
-                                val hit = nearestPin(geometry, pins, offset.x, offset.y, 34.dp.toPx())
+                                val hit = nearestPin(geometry, pins, offset.x, offset.y, 26.dp.toPx())
                                 if (hit != null && pinHandler != null) {
                                     pinHandler?.invoke(hit)
                                 } else {
@@ -402,29 +414,68 @@ private class MapGeometry(
 /* ------------------------------------------------------------------ paint */
 
 private fun DrawScope.drawTiles(geometry: MapGeometry, style: MapStyle, dark: Boolean) {
-    val count = 1 shl geometry.tileZoom
-    val firstX = floor(geometry.leftWorld / geometry.tileSize).toInt()
-    val lastX = ceil((geometry.leftWorld + size.width) / geometry.tileSize).toInt()
-    val firstY = floor(geometry.topWorld / geometry.tileSize).toInt()
-    val lastY = ceil((geometry.topWorld + size.height) / geometry.tileSize).toInt()
-    val drawSize = geometry.tileSize.roundToInt() + 1
+    // A coarse layer two zoom levels out always exists first, so panning or
+    // zooming never leaves a blank cream square: the smooth parent tile is
+    // stretched over the area, then the sharp tile is painted on top of it.
+    drawTileLayer(
+        geometry = geometry,
+        style = style,
+        dark = dark,
+        zoom = (geometry.tileZoom - 2).coerceAtLeast(2),
+        sizePx = geometry.tileSize * 4.0,
+    )
+    drawTileLayer(
+        geometry = geometry,
+        style = style,
+        dark = dark,
+        zoom = geometry.tileZoom,
+        sizePx = geometry.tileSize,
+    )
+}
+
+private fun DrawScope.drawTileLayer(
+    geometry: MapGeometry,
+    style: MapStyle,
+    dark: Boolean,
+    zoom: Int,
+    sizePx: Double,
+) {
+    val count = 1 shl zoom
+    val firstX = floor(geometry.leftWorld / sizePx).toInt()
+    val lastX = ceil((geometry.leftWorld + size.width) / sizePx).toInt()
+    val firstY = floor(geometry.topWorld / sizePx).toInt()
+    val lastY = ceil((geometry.topWorld + size.height) / sizePx).toInt()
+    val drawSize = sizePx.roundToInt() + 1
 
     for (tileY in firstY..lastY) {
         if (tileY < 0 || tileY >= count) continue
         for (tileX in firstX..lastX) {
             val wrapped = ((tileX % count) + count) % count
-            val url = TileSources.urlFor(style, dark, geometry.tileZoom, wrapped, tileY)
-            val bitmap = TileCache.cached(url) ?: continue
+            val bitmap = firstCached(style, dark, zoom, wrapped, tileY) ?: continue
             drawImage(
                 image = bitmap,
                 dstOffset = IntOffset(
-                    (tileX * geometry.tileSize - geometry.leftWorld).roundToInt(),
-                    (tileY * geometry.tileSize - geometry.topWorld).roundToInt(),
+                    (tileX * sizePx - geometry.leftWorld).roundToInt(),
+                    (tileY * sizePx - geometry.topWorld).roundToInt(),
                 ),
                 dstSize = IntSize(drawSize, drawSize),
             )
         }
     }
+}
+
+/** The first provider that already has this tile in memory. */
+private fun firstCached(
+    style: MapStyle,
+    dark: Boolean,
+    zoom: Int,
+    x: Int,
+    y: Int,
+): ImageBitmap? {
+    TileSources.urlsFor(style, dark, zoom, x, y).forEach { url ->
+        TileCache.cached(url)?.let { return it }
+    }
+    return null
 }
 
 private fun DrawScope.drawPins(
@@ -434,8 +485,8 @@ private fun DrawScope.drawPins(
     selectedId: String?,
     colors: AppColors,
 ) {
-    val normalHeight = 34.dp.toPx()
-    val selectedHeight = 46.dp.toPx()
+    val normalHeight = 26.dp.toPx()
+    val selectedHeight = 36.dp.toPx()
 
     pins.forEach { pin ->
         val x = geometry.xOf(pin.longitude)
@@ -443,12 +494,12 @@ private fun DrawScope.drawPins(
         if (x < -90f || x > size.width + 90f || y < -90f || y > size.height + 90f) return@forEach
         val selected = pin.id.isNotEmpty() && pin.id == selectedId
         val height = if (selected) selectedHeight else normalHeight
-        val width = height * 0.78f
+        val width = height * 0.80f
         val fill = if (pin.kind == Kinds.SHOP) colors.brandDeep else colors.brand
         if (selected) {
             drawCircle(
                 color = colors.brand.copy(alpha = 0.16f),
-                radius = height * 0.92f,
+                radius = height * 0.95f,
                 center = Offset(x, y - height * 0.55f),
             )
         }
@@ -498,12 +549,16 @@ private fun DrawScope.drawPin(
         close()
     }
 
-    translate(top = 2.5.dp.toPx()) {
+    translate(top = 2.dp.toPx()) {
         drawPath(path, color = Color(0x26000000))
     }
     drawPath(path, color = fill)
-    drawPath(path, color = Color.White, style = Stroke(width = if (selected) 3.dp.toPx() else 2.dp.toPx()))
-    drawCircle(color = Color.White, radius = radius * 0.36f, center = Offset(x, circleY))
+    drawPath(
+        path,
+        color = Color.White,
+        style = Stroke(width = if (selected) 2.4.dp.toPx() else 1.6.dp.toPx()),
+    )
+    drawCircle(color = Color.White, radius = radius * 0.33f, center = Offset(x, circleY))
 }
 
 /* ------------------------------------------------------------------ helpers */
@@ -630,12 +685,18 @@ private object TileCache {
 
     /** True when this URL should be downloaded now (not cached, not busy, not failing). */
     fun claim(url: String): Boolean = synchronized(store) {
-        if (inFlight.size >= 6) return false
+        if (inFlight.size >= 9) return false
         val failedAt = failures[url]
-        if (failedAt != null && System.currentTimeMillis() - failedAt < 15_000L) return false
+        if (failedAt != null && System.currentTimeMillis() - failedAt < 2_500L) return false
         if (inFlight.contains(url)) return false
         inFlight.add(url)
         true
+    }
+
+    /** True while this tile is in its short back-off after a failed download. */
+    fun coolingDown(url: String): Boolean = synchronized(store) {
+        val failedAt = failures[url]
+        failedAt != null && System.currentTimeMillis() - failedAt < 2_500L
     }
 
     fun release(url: String) {
