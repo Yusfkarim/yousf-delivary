@@ -24,10 +24,12 @@ step() { printf '\n=== %s ===\n' "$*"; }
 die() { printf '\nBUILD FAILED: %s\n' "$*"; exit 1; }
 fetch() { curl -fsSL --retry 3 --retry-delay 2 --max-time 1200 -o "$2" "$1" || die "download failed: $1"; }
 
+# `jar xf` does not restore the executable bit, so chmod after every extract.
 extract_zip() {
   local zip="$1" dest="$2"
   rm -rf "$dest"; mkdir -p "$dest"
   ( cd "$dest" && jar xf "$zip" ) || die "zip extract failed: $zip"
+  chmod -R u+x "$dest"
 }
 
 mkdir -p "$TOOLS" "$OUT"
@@ -55,9 +57,10 @@ if [ ! -x "$TOOLS/gradle/bin/gradle" ]; then
   fetch "$GRADLE_URL" "$TOOLS/gradle.zip"
   extract_zip "$TOOLS/gradle.zip" "$TOOLS/gradle-extract"
   mv "$TOOLS/gradle-extract/gradle-${GRADLE_VER}" "$TOOLS/gradle" || die "gradle move"
+  chmod -R u+x "$TOOLS/gradle/bin"
   rm -rf "$TOOLS/gradle.zip" "$TOOLS/gradle-extract"
 fi
-"$TOOLS/gradle/bin/gradle" --version 2>/dev/null | sed -n '1,4p'
+"$TOOLS/gradle/bin/gradle" --version | sed -n '1,4p' || die "gradle not runnable"
 
 step "3/6 Android SDK"
 if [ ! -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
@@ -65,6 +68,7 @@ if [ ! -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
   extract_zip "$TOOLS/cmdtools.zip" "$TOOLS/cmdtools"
   mkdir -p "$ANDROID_HOME/cmdline-tools"
   mv "$TOOLS/cmdtools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest" || die "cmdtools move"
+  chmod -R u+x "$ANDROID_HOME/cmdline-tools/latest/bin"
   rm -rf "$TOOLS/cmdtools.zip" "$TOOLS/cmdtools"
 fi
 export ANDROID_HOME
