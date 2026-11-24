@@ -1,24 +1,22 @@
 package com.yousif.delivery.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -26,18 +24,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.yousif.delivery.ui.icons.AppIcons
 import com.yousif.delivery.BuildConfig
-import com.yousif.delivery.ui.theme.AppDanger
-import com.yousif.delivery.ui.theme.AppSurface
-import com.yousif.delivery.ui.theme.AppSurfaceHigh
-import com.yousif.delivery.ui.theme.AppTextPrimary
-import com.yousif.delivery.ui.theme.AppTextSecondary
-import com.yousif.delivery.ui.theme.MetallicGold
+import com.yousif.delivery.ui.icons.AppIcons
+import com.yousif.delivery.ui.theme.LocalAppColors
 import com.yousif.delivery.util.TextUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,117 +40,153 @@ import com.yousif.delivery.util.TextUtils
 fun SettingsSheet(
     baseUrl: String,
     pendingCount: Int,
+    themeMode: Int,
     onDismiss: () -> Unit,
     onSaveUrl: (String) -> Unit,
     onTest: () -> Unit,
     onSync: () -> Unit,
     onLock: () -> Unit,
+    onThemeMode: (Int) -> Unit,
 ) {
+    val colors = LocalAppColors.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var url by remember { mutableStateOf(baseUrl) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = AppSurface,
+        containerColor = colors.surface,
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 18.dp)
+                .padding(horizontal = 16.dp)
                 .padding(bottom = 30.dp),
         ) {
-            Text(
-                text = "ڕێکخستن",
-                color = AppTextPrimary,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BrandBadge(size = 40.dp, icon = AppIcons.settings())
+                Spacer(Modifier.width(10.dp))
+                Column {
+                    Text(
+                        text = "ڕێکخستن",
+                        color = colors.textPrimary,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "ڕووکار، سێرڤەر و هاوکاتکردن",
+                        color = colors.textSecondary,
+                        fontSize = 11.5.sp,
+                    )
+                }
+            }
+
+            SectionHeader(text = "ڕووکار")
+
+            Segmented(
+                options = listOf("سیستەم", "ڕۆژ", "شەو"),
+                selectedIndex = themeMode,
+                modifier = Modifier.fillMaxWidth(),
+                onSelect = onThemeMode,
             )
 
-            Spacer(Modifier.height(14.dp))
+            SectionHeader(text = "نیشانی سێرڤەر (Vercel)")
 
-            SectionLabel("نیشانی سێرڤەر (Vercel)")
             OutlinedTextField(
                 value = url,
                 onValueChange = { url = it },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                label = { Text("Base URL") },
-                placeholder = { Text("https://…vercel.app", fontSize = 12.sp) },
-                shape = RoundedCornerShape(14.dp),
+                placeholder = { Text("https://…vercel.app", fontSize = 12.sp, color = colors.textMuted) },
+                shape = RoundedCornerShape(16.dp),
+                textStyle = TextStyle(fontSize = 13.sp, color = colors.textPrimary),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = colors.surface,
+                    unfocusedContainerColor = colors.surface,
+                    focusedBorderColor = colors.brand,
+                    unfocusedBorderColor = colors.border,
+                    cursorColor = colors.brand,
+                ),
             )
 
             Spacer(Modifier.height(10.dp))
 
-            Button(
-                onClick = { onSaveUrl(url) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-            ) { Text("پاشەکەوتکردنی نیشان") }
-
-            Spacer(Modifier.height(8.dp))
-
-            OutlinedButton(
-                onClick = onTest,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-            ) { Text("تاقیکردنەوەی پەیوەندی") }
-
-            Spacer(Modifier.height(18.dp))
-            DividerLine()
-            Spacer(Modifier.height(14.dp))
-
-            Text(
-                text = if (pendingCount == 0) {
-                    "هیچ گۆڕانکارییەکی چاوەڕوان نییە"
-                } else {
-                    "${TextUtils.toKurdish(pendingCount.toString())} گۆڕانکاری چاوەڕوانی ئینتەرنێتن"
-                },
-                color = if (pendingCount == 0) AppTextSecondary else MetallicGold,
-                fontSize = 12.sp,
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            OutlinedButton(
-                onClick = onSync,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-            ) {
-                Icon(AppIcons.sync(), contentDescription = null)
-                Spacer(Modifier.height(4.dp))
-                Text("  هاوکاتکردن لەگەڵ سێرڤەر")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PillButton(
+                    label = "پاشەکەوتکردن",
+                    onClick = { onSaveUrl(url) },
+                    icon = AppIcons.check(),
+                    container = colors.brand,
+                    contentColor = colors.onBrand,
+                    modifier = Modifier.weight(1f),
+                )
+                PillButton(
+                    label = "تاقیکردنەوە",
+                    onClick = onTest,
+                    icon = AppIcons.sync(),
+                    container = colors.surfaceAlt,
+                    contentColor = colors.brandDeep,
+                    modifier = Modifier.weight(1f),
+                )
             }
 
-            Spacer(Modifier.height(18.dp))
-            DividerLine()
-            Spacer(Modifier.height(14.dp))
+            SectionHeader(text = "هاوکاتکردن")
 
-            OutlinedButton(
+            AppCard(padding = 14.dp) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        AppIcons.cloudWait(),
+                        contentDescription = null,
+                        tint = if (pendingCount == 0) colors.success else colors.gold,
+                    )
+                    Spacer(Modifier.width(9.dp))
+                    Text(
+                        text = if (pendingCount == 0) {
+                            "هیچ گۆڕانکارییەکی چاوەڕوان نییە"
+                        } else {
+                            "${TextUtils.toKurdish(pendingCount.toString())} گۆڕانکاری چاوەڕوانی ئینتەرنێتن"
+                        },
+                        color = colors.textSecondary,
+                        fontSize = 12.sp,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                PillButton(
+                    label = "هاوکاتکردن لەگەڵ سێرڤەر",
+                    onClick = onSync,
+                    icon = AppIcons.sync(),
+                    container = colors.brandSoft,
+                    contentColor = colors.brandDeep,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            SectionHeader(text = "ئاسایش")
+
+            PillButton(
+                label = "قفڵکردنی ئەپ",
                 onClick = onLock,
+                icon = AppIcons.lock(),
+                container = colors.dangerSoft,
+                contentColor = colors.danger,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-            ) {
-                Icon(AppIcons.lock(), contentDescription = null, tint = AppDanger)
-                Text("  قفڵکردنی ئەپ", color = AppDanger)
-            }
+            )
 
             Spacer(Modifier.height(18.dp))
 
             Text(
                 text = "یوسف دلیڤەری · وەشان ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-                color = AppTextSecondary.copy(alpha = 0.7f),
+                color = colors.textMuted,
                 fontSize = 11.sp,
             )
             Text(
-                text = "ناوەختی پارێزراو بە وشەی نهێنی · داتا لە Vercel Postgres",
-                color = AppSurfaceHigh,
+                text = "ناوەختی پارێزراو بە وشەی نهێنی · داتا لە Supabase",
+                color = colors.textMuted,
                 fontSize = 10.sp,
             )
-            Spacer(Modifier.height(6.dp))
-            Icon(AppIcons.settings(), contentDescription = null, tint = AppSurfaceHigh)
         }
     }
 }

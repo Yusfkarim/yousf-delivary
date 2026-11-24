@@ -14,16 +14,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -42,21 +41,15 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.yousif.delivery.ui.icons.AppIcons
 import com.yousif.delivery.BuildConfig
-import com.yousif.delivery.ui.theme.AppBackground
-import com.yousif.delivery.ui.theme.AppDanger
-import com.yousif.delivery.ui.theme.AppSurface
-import com.yousif.delivery.ui.theme.AppTextPrimary
-import com.yousif.delivery.ui.theme.AppTextSecondary
-import com.yousif.delivery.ui.theme.NeonCyan
+import com.yousif.delivery.ui.icons.AppIcons
+import com.yousif.delivery.ui.theme.LocalAppColors
 import com.yousif.delivery.viewmodel.MainViewModel
 
 @Composable
 fun LockScreen(viewModel: MainViewModel) {
+    val colors = LocalAppColors.current
     val busy by viewModel.busy.collectAsStateWithLifecycle()
     val authError by viewModel.authError.collectAsStateWithLifecycle()
     val diagnostics by viewModel.diagnostics.collectAsStateWithLifecycle()
@@ -70,7 +63,7 @@ fun LockScreen(viewModel: MainViewModel) {
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    listOf(AppBackground, Color(0xFF0D1524), AppBackground),
+                    listOf(colors.background, colors.surfaceAlt, colors.background),
                 ),
             )
             .verticalScroll(rememberScrollState())
@@ -84,33 +77,28 @@ fun LockScreen(viewModel: MainViewModel) {
         ) {
             Box(
                 modifier = Modifier
-                    .size(88.dp)
-                    .background(NeonCyan.copy(alpha = 0.12f), CircleShape),
+                    .size(96.dp)
+                    .background(colors.surface, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    AppIcons.pin(),
-                    contentDescription = null,
-                    tint = NeonCyan,
-                    modifier = Modifier.size(44.dp),
-                )
+                BrandBadge(size = 66.dp, icon = AppIcons.packageBox())
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(18.dp))
             Text(
                 text = "یوسف دلیڤەری",
-                color = AppTextPrimary,
-                style = MaterialTheme.typography.headlineMedium,
+                color = colors.textPrimary,
+                fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
             )
             Spacer(Modifier.height(6.dp))
             Text(
                 text = "وشەی نهێنی بنووسە بۆ چوونەژوورەوە",
-                color = AppTextSecondary,
+                color = colors.textSecondary,
                 fontSize = 13.sp,
             )
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(26.dp))
 
             OutlinedTextField(
                 value = password,
@@ -120,68 +108,88 @@ fun LockScreen(viewModel: MainViewModel) {
                 },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                label = { Text("وشەی نهێنی") },
-                leadingIcon = { Icon(AppIcons.lock(), contentDescription = null) },
+                placeholder = { Text("وشەی نهێنی", fontSize = 13.sp, color = colors.textMuted) },
+                leadingIcon = {
+                    Icon(
+                        AppIcons.lock(),
+                        contentDescription = null,
+                        tint = colors.brand,
+                        modifier = Modifier.size(18.dp),
+                    )
+                },
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done,
                 ),
                 keyboardActions = KeyboardActions(onDone = { viewModel.unlock(password) }),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
+                textStyle = TextStyle(fontSize = 14.sp, color = colors.textPrimary),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = colors.surface,
+                    unfocusedContainerColor = colors.surface,
+                    focusedBorderColor = colors.brand,
+                    unfocusedBorderColor = colors.border,
+                    cursorColor = colors.brand,
+                ),
             )
 
             Spacer(Modifier.height(16.dp))
 
-            Button(
-                onClick = { viewModel.unlock(password) },
-                enabled = !busy,
+            PillButton(
+                label = "چوونەژوورەوە",
+                onClick = { if (!busy) viewModel.unlock(password) },
+                icon = AppIcons.check(),
+                container = colors.brand,
+                contentColor = colors.onBrand,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp),
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                if (busy) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color(0xFF04202A),
-                        strokeWidth = 2.dp,
-                    )
-                } else {
-                    Text("چوونەژوورەوە", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                }
+                height = 54.dp,
+                fontSize = 15,
+            )
+            if (busy) {
+                Spacer(Modifier.height(10.dp))
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    color = colors.brand,
+                    strokeWidth = 2.dp,
+                )
             }
 
             val error = authError
             if (error != null) {
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
                 Text(
                     text = error,
-                    color = AppDanger,
+                    color = colors.danger,
                     fontSize = 11.5.sp,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(colors.dangerSoft, RoundedCornerShape(12.dp))
+                        .padding(10.dp),
                 )
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(14.dp))
 
             Row(horizontalArrangement = Arrangement.Center) {
                 TextButton(onClick = { showServerDialog = true }) {
-                    Text("ڕێکخستنی سێرڤەر", color = AppTextSecondary, fontSize = 12.sp)
+                    Text("ڕێکخستنی سێرڤەر", color = colors.textSecondary, fontSize = 12.sp)
                 }
                 TextButton(onClick = { viewModel.diagnose() }, enabled = !busy) {
-                    Text("پشکنینی سێرڤەر", color = NeonCyan, fontSize = 12.sp)
+                    Text("پشکنینی سێرڤەر", color = colors.brandDeep, fontSize = 12.sp)
                 }
             }
             Text(
                 text = baseUrl,
-                color = AppTextSecondary.copy(alpha = 0.55f),
+                color = colors.textMuted,
                 fontSize = 10.sp,
             )
             Text(
                 text = "وەشان " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")",
-                color = AppTextSecondary.copy(alpha = 0.45f),
+                color = colors.textMuted,
                 fontSize = 9.5.sp,
             )
         }
@@ -191,16 +199,12 @@ fun LockScreen(viewModel: MainViewModel) {
     if (report != null) {
         AlertDialog(
             onDismissRequest = { viewModel.dismissDiagnostics() },
-            containerColor = AppSurface,
-            title = { Text("پشکنینی سێرڤەر", color = AppTextPrimary) },
+            containerColor = colors.surface,
+            title = { Text("پشکنینی سێرڤەر", color = colors.textPrimary) },
             text = {
                 Column {
                     report.forEach { line ->
-                        Text(
-                            text = line,
-                            color = AppTextSecondary,
-                            fontSize = 11.sp,
-                        )
+                        Text(text = line, color = colors.textSecondary, fontSize = 11.sp)
                     }
                 }
             },
@@ -228,16 +232,17 @@ fun ServerUrlDialog(
     onDismiss: () -> Unit,
     onSave: (String) -> Unit,
 ) {
+    val colors = LocalAppColors.current
     var value by remember { mutableStateOf(current) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = AppSurface,
-        title = { Text("نیشانی سێرڤەر", color = AppTextPrimary) },
+        containerColor = colors.surface,
+        title = { Text("نیشانی سێرڤەر", color = colors.textPrimary) },
         text = {
             Column {
                 Text(
                     "ئەگەر ناونیشانی سێرڤەرەکەت گۆڕا، لێرە بنووسە.",
-                    color = AppTextSecondary,
+                    color = colors.textSecondary,
                     fontSize = 12.sp,
                 )
                 Spacer(Modifier.height(8.dp))
@@ -245,15 +250,25 @@ fun ServerUrlDialog(
                     value = value,
                     onValueChange = { value = it },
                     singleLine = true,
-                    label = { Text("https://…") },
+                    placeholder = { Text("https://…", fontSize = 12.sp, color = colors.textMuted) },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = colors.surface,
+                        unfocusedContainerColor = colors.surface,
+                        focusedBorderColor = colors.brand,
+                        unfocusedBorderColor = colors.border,
+                        cursorColor = colors.brand,
+                    ),
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(value) }) { Text("پاشەکەوتکردن") }
+            TextButton(onClick = { onSave(value) }) {
+                Text("پاشەکەوتکردن", color = colors.brandDeep)
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("پاشگەزبوونەوە") }
+            TextButton(onClick = onDismiss) { Text("پاشگەزبوونەوە", color = colors.textSecondary) }
         },
     )
 }

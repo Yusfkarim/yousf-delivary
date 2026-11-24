@@ -50,6 +50,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _baseUrl = MutableStateFlow(session.baseUrl)
     val baseUrl: StateFlow<String> = _baseUrl.asStateFlow()
 
+    private val _themeMode = MutableStateFlow(session.themeMode)
+    val themeMode: StateFlow<Int> = _themeMode.asStateFlow()
+
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
@@ -115,6 +118,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 filtered.sortedByDescending { it.updatedAt }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun setThemeMode(mode: Int) {
+        _themeMode.value = mode
+        session.themeMode = mode
+    }
 
     fun setQuery(value: String) {
         _query.value = value

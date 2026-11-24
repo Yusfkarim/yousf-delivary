@@ -2,11 +2,15 @@ package com.yousif.delivery.ui
 
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,18 +20,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -41,18 +39,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.yousif.delivery.ui.icons.AppIcons
 import com.yousif.delivery.data.Customer
 import com.yousif.delivery.data.CustomerDraft
 import com.yousif.delivery.data.ExtraPhone
-import com.yousif.delivery.ui.theme.AppDanger
-import com.yousif.delivery.ui.theme.AppSurface
-import com.yousif.delivery.ui.theme.AppTextPrimary
-import com.yousif.delivery.ui.theme.AppTextSecondary
-import com.yousif.delivery.ui.theme.NeonCyan
+import com.yousif.delivery.ui.icons.AppIcons
+import com.yousif.delivery.ui.theme.LocalAppColors
 import com.yousif.delivery.util.IntentUtils
 import com.yousif.delivery.util.MapLinkParser
 import com.yousif.delivery.util.TextUtils
@@ -78,6 +73,7 @@ fun CustomerSheet(
     onDismiss: () -> Unit,
     onSave: (CustomerDraft) -> Unit,
 ) {
+    val colors = LocalAppColors.current
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -128,114 +124,90 @@ fun CustomerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = AppSurface,
+        containerColor = colors.surface,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 18.dp)
-                .padding(bottom = 32.dp),
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 30.dp),
         ) {
-            Text(
-                text = if (initial == null) "زیادکردنی کڕیاری نوێ" else "دەستکاری کڕیار",
-                color = AppTextPrimary,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(Modifier.height(14.dp))
-
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                label = { Text("ناوی کڕیار") },
-                shape = RoundedCornerShape(14.dp),
-            )
-            Spacer(Modifier.height(10.dp))
-
-            OutlinedTextField(
-                value = primaryPhone,
-                onValueChange = { primaryPhone = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                label = { Text("ژمارەی سەرەکی") },
-                placeholder = { Text("07xx xxx xxxx", fontSize = 12.sp) },
-                shape = RoundedCornerShape(14.dp),
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = hasWhatsapp,
-                    onClick = { hasWhatsapp = !hasWhatsapp },
-                    label = { Text("واتسئەپ", fontSize = 12.sp) },
-                )
-                FilterChip(
-                    selected = hasViber,
-                    onClick = { hasViber = !hasViber },
-                    label = { Text("ڤایبەر", fontSize = 12.sp) },
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BrandBadge(size = 40.dp, icon = if (initial == null) AppIcons.plus() else AppIcons.edit())
+                Spacer(Modifier.width(10.dp))
+                Column {
+                    Text(
+                        text = if (initial == null) "زیادکردنی کڕیاری نوێ" else "دەستکاری کڕیار",
+                        color = colors.textPrimary,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "ناو، ژمارە و شوێن پێویستن",
+                        color = colors.textSecondary,
+                        fontSize = 11.5.sp,
+                    )
+                }
             }
 
-            Spacer(Modifier.height(6.dp))
+            SectionHeader(text = "زانیاری سەرەکی")
+
+            AppCard(padding = 14.dp) {
+                SheetField(
+                    value = name,
+                    onValueChange = { name = it },
+                    placeholder = "ناوی کڕیار",
+                    icon = AppIcons.user(),
+                )
+                Spacer(Modifier.height(10.dp))
+                SheetField(
+                    value = primaryPhone,
+                    onValueChange = { primaryPhone = it },
+                    placeholder = "ژمارەی سەرەکی (07xx xxx xxxx)",
+                    icon = AppIcons.call(),
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TogglePill(
+                        label = "واتسئەپ",
+                        selected = hasWhatsapp,
+                        onClick = { hasWhatsapp = !hasWhatsapp },
+                        modifier = Modifier.weight(1f),
+                    )
+                    TogglePill(
+                        label = "ڤایبەر",
+                        selected = hasViber,
+                        onClick = { hasViber = !hasViber },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
 
             extras.forEachIndexed { index, editor ->
-                ExtraPhoneRow(
-                    editor = editor,
-                    onRemove = { extras.removeAt(index) },
-                )
+                ExtraPhoneRow(editor = editor, onRemove = { extras.removeAt(index) })
             }
 
             TextButton(onClick = { extras.add(ExtraPhoneEditor()) }) {
                 Icon(
                     AppIcons.plus(),
                     contentDescription = null,
-                    tint = NeonCyan,
+                    tint = colors.brandDeep,
                     modifier = Modifier.size(16.dp),
                 )
                 Spacer(Modifier.width(4.dp))
-                Text("زیادکردنی ژمارەی تر", color = NeonCyan, fontSize = 12.sp)
+                Text("زیادکردنی ژمارەی تر", color = colors.brandDeep, fontSize = 12.sp)
             }
 
-            SectionLabel("شوێنی کڕیار")
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { onRequestGps { lat, lng -> applyCoordinates(lat, lng) } },
-                    shape = RoundedCornerShape(14.dp),
-                ) {
-                    Icon(AppIcons.pin(), contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("شوێنی ئێستام (GPS)", fontSize = 12.sp)
-                }
-                if (latitude != null && longitude != null) {
-                    TextButton(onClick = {
-                        IntentUtils.copyToClipboard(
-                            context,
-                            "coordinates",
-                            TextUtils.coordinates(latitude ?: 0.0, longitude ?: 0.0),
-                        )
-                        IntentUtils.toast(context, "کۆردینات کۆپی کرا")
-                    }) {
-                        Icon(
-                            AppIcons.copy(),
-                            contentDescription = null,
-                            tint = AppTextSecondary,
-                            modifier = Modifier.size(15.dp),
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(TextUtils.coordinates(latitude ?: 0.0, longitude ?: 0.0), fontSize = 11.sp)
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
+            SectionHeader(text = "شوێنی کڕیار")
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(210.dp)
-                    .clip(RoundedCornerShape(18.dp)),
+                    .height(215.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .border(1.dp, colors.border, RoundedCornerShape(20.dp)),
             ) {
                 OsmMap(
                     modifier = Modifier.fillMaxSize(),
@@ -250,50 +222,88 @@ fun CustomerSheet(
                     onTap = { lat, lng -> applyCoordinates(lat, lng) },
                 )
             }
+
             Text(
                 text = "لە نەخشەکە دەست بنێ بۆ دیاریکردنی شوێن",
-                color = AppTextSecondary,
+                color = colors.textMuted,
                 fontSize = 11.sp,
-                modifier = Modifier.padding(top = 6.dp),
+                modifier = Modifier.padding(top = 6.dp, bottom = 10.dp),
             )
 
-            Spacer(Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = pasteField,
-                onValueChange = { pasteField = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                label = { Text("لینکی گووگڵ ماپ یان کۆردینات") },
-                placeholder = { Text("37.1234, 45.1234", fontSize = 12.sp) },
-                shape = RoundedCornerShape(14.dp),
-                trailingIcon = {
-                    TextButton(onClick = { parsePaste() }) { Text("جێبەجێکردن", fontSize = 11.sp) }
-                },
-            )
-
-            Spacer(Modifier.height(10.dp))
-
-            OutlinedTextField(
-                value = addressNote,
-                onValueChange = { addressNote = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("ناونیشان / تێبینی کورت") },
-                shape = RoundedCornerShape(14.dp),
-            )
+            AppCard(padding = 14.dp) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PillButton(
+                        label = "شوێنی ئێستام",
+                        onClick = { onRequestGps { lat, lng -> applyCoordinates(lat, lng) } },
+                        icon = AppIcons.locate(),
+                        container = colors.brandSoft,
+                        contentColor = colors.brandDeep,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (latitude != null && longitude != null) {
+                        PillButton(
+                            label = "کۆپی",
+                            onClick = {
+                                IntentUtils.copyToClipboard(
+                                    context,
+                                    "coordinates",
+                                    TextUtils.coordinates(latitude ?: 0.0, longitude ?: 0.0),
+                                )
+                                IntentUtils.toast(context, "کۆردینات کۆپی کرا")
+                            },
+                            icon = AppIcons.copy(),
+                            container = colors.surfaceAlt,
+                            contentColor = colors.textSecondary,
+                            modifier = Modifier.width(110.dp),
+                        )
+                    }
+                }
+                if (latitude != null && longitude != null) {
+                    Text(
+                        text = TextUtils.coordinates(latitude ?: 0.0, longitude ?: 0.0),
+                        color = colors.textMuted,
+                        fontSize = 10.5.sp,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                SheetField(
+                    value = pasteField,
+                    onValueChange = { pasteField = it },
+                    placeholder = "لینکی گووگڵ ماپ یان کۆردینات",
+                    icon = AppIcons.map(),
+                    trailing = {
+                        TextButton(onClick = { parsePaste() }) {
+                            Text("جێبەجێکردن", fontSize = 11.sp, color = colors.brandDeep)
+                        }
+                    },
+                )
+                Spacer(Modifier.height(10.dp))
+                SheetField(
+                    value = addressNote,
+                    onValueChange = { addressNote = it },
+                    placeholder = "ناونیشان / تێبینی کورت",
+                    icon = AppIcons.pin(),
+                )
+            }
 
             error?.let { message ->
                 Text(
                     text = message,
-                    color = AppDanger,
+                    color = colors.danger,
                     fontSize = 12.sp,
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp)
+                        .background(colors.dangerSoft, RoundedCornerShape(12.dp))
+                        .padding(10.dp),
                 )
             }
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(16.dp))
 
-            Button(
+            PillButton(
+                label = if (initial == null) "زیادکردنی کڕیار" else "پاشەکەوتکردنی گۆڕانکاری",
                 onClick = {
                     when {
                         name.isBlank() -> error = "ناوی کڕیار پێویستە"
@@ -319,43 +329,121 @@ fun CustomerSheet(
                         }
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Text("پاشەکەوتکردن", fontWeight = FontWeight.Bold)
-            }
+                icon = AppIcons.check(),
+                container = colors.brand,
+                contentColor = colors.onBrand,
+                modifier = Modifier.fillMaxWidth(),
+                height = 54.dp,
+                fontSize = 14,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SheetField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    val colors = LocalAppColors.current
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        placeholder = { Text(placeholder, fontSize = 12.5.sp, color = colors.textMuted) },
+        leadingIcon = {
+            Icon(icon, contentDescription = null, tint = colors.textSecondary, modifier = Modifier.size(17.dp))
+        },
+        trailingIcon = trailing,
+        shape = RoundedCornerShape(16.dp),
+        textStyle = TextStyle(fontSize = 13.5.sp, color = colors.textPrimary, fontWeight = FontWeight.Medium),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = colors.surfaceSunken,
+            unfocusedContainerColor = colors.surfaceSunken,
+            focusedBorderColor = colors.brand.copy(alpha = 0.6f),
+            unfocusedBorderColor = colors.border,
+            cursorColor = colors.brand,
+        ),
+    )
+}
+
+@Composable
+private fun TogglePill(
+    label: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val colors = LocalAppColors.current
+    val shape = RoundedCornerShape(50)
+    Row(
+        modifier = modifier
+            .height(42.dp)
+            .clip(shape)
+            .background(if (selected) colors.brandSoft else colors.surfaceSunken)
+            .border(1.dp, if (selected) colors.brand.copy(alpha = 0.4f) else colors.border, shape)
+            .clickable(onClick = onClick),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = if (label == "واتسئەپ") AppIcons.whatsapp() else AppIcons.viber(),
+            contentDescription = null,
+            tint = if (selected) colors.brandDeep else colors.textMuted,
+            modifier = Modifier.size(15.dp),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = label,
+            color = if (selected) colors.brandDeep else colors.textSecondary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        if (selected) {
+            Spacer(Modifier.width(5.dp))
+            Icon(
+                AppIcons.check(),
+                contentDescription = null,
+                tint = colors.brandDeep,
+                modifier = Modifier.size(13.dp),
+            )
         }
     }
 }
 
 @Composable
 private fun ExtraPhoneRow(editor: ExtraPhoneEditor, onRemove: () -> Unit) {
-    Column(Modifier.padding(top = 8.dp)) {
+    val colors = LocalAppColors.current
+    Column(Modifier.padding(top = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(
-                value = editor.number,
-                onValueChange = { editor.number = it },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-                label = { Text("ژمارەی تر", fontSize = 12.sp) },
-                shape = RoundedCornerShape(14.dp),
-            )
+            Box(Modifier.weight(1f)) {
+                SheetField(
+                    value = editor.number,
+                    onValueChange = { editor.number = it },
+                    placeholder = "ژمارەی تر",
+                    icon = AppIcons.call(),
+                )
+            }
             IconButton(onClick = onRemove) {
-                Icon(AppIcons.delete(), contentDescription = "سڕینەوە", tint = AppDanger)
+                Icon(AppIcons.delete(), contentDescription = "سڕینەوە", tint = colors.danger)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(
+            TogglePill(
+                label = "واتسئەپ",
                 selected = editor.hasWhatsapp,
                 onClick = { editor.hasWhatsapp = !editor.hasWhatsapp },
-                label = { Text("واتسئەپ", fontSize = 11.sp) },
+                modifier = Modifier.weight(1f),
             )
-            FilterChip(
+            TogglePill(
+                label = "ڤایبەر",
                 selected = editor.hasViber,
                 onClick = { editor.hasViber = !editor.hasViber },
-                label = { Text("ڤایبەر", fontSize = 11.sp) },
+                modifier = Modifier.weight(1f),
             )
         }
     }
