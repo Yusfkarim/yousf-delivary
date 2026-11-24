@@ -44,6 +44,8 @@ object AppIcons {
     @Composable fun wallet(): ImageVector = ImageVector.vectorResource(R.drawable.ic_wallet)
     @Composable fun checkCircle(): ImageVector = ImageVector.vectorResource(R.drawable.ic_check_circle)
     @Composable fun chevronEnd(): ImageVector = ImageVector.vectorResource(R.drawable.ic_chevron_end)
+
+    @Composable fun chevronStart(): ImageVector = ImageVector.vectorResource(R.drawable.ic_chevron_start)
     @Composable fun moon(): ImageVector = ImageVector.vectorResource(R.drawable.ic_moon)
     @Composable fun sun(): ImageVector = ImageVector.vectorResource(R.drawable.ic_sun)
     @Composable fun packageBox(): ImageVector = ImageVector.vectorResource(R.drawable.ic_package)
