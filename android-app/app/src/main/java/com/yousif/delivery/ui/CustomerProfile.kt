@@ -406,7 +406,7 @@ private fun ActionTile(
     val shape = RoundedCornerShape(16.dp)
     Column(
         modifier = modifier
-            .height(57.dp)
+            .height(68.dp)
             .clip(shape)
             .background(if (colors.isDark) brand.copy(alpha = 0.16f) else brand.copy(alpha = 0.09f))
             .border(1.dp, brand.copy(alpha = 0.22f), shape)
@@ -429,13 +429,16 @@ private fun ActionTile(
                 modifier = Modifier.size(15.dp),
             )
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(5.dp))
         Text(
             text = label,
             color = colors.textPrimary,
-            fontSize = 10.5.sp,
+            fontSize = 10.sp,
+            lineHeight = 12.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Visible,
         )
     }
 }
@@ -443,27 +446,40 @@ private fun ActionTile(
 @Composable
 private fun SectionLabel(text: String, icon: ImageVector) {
     val colors = LocalAppColors.current
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Box(
             modifier = Modifier
                 .width(4.dp)
-                .height(16.dp)
+                .height(18.dp)
                 .clip(RoundedCornerShape(50))
                 .background(Brush.verticalGradient(listOf(colors.brand, colors.brandDeep))),
         )
-        Spacer(Modifier.width(7.dp))
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = colors.brand,
-            modifier = Modifier.size(15.dp),
-        )
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.width(9.dp))
+        Box(
+            modifier = Modifier
+                .size(26.dp)
+                .clip(CircleShape)
+                .background(colors.brandSoft),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = colors.brandDeep,
+                modifier = Modifier.size(14.dp),
+            )
+        }
+        Spacer(Modifier.width(9.dp))
         Text(
             text = text,
             color = colors.textPrimary,
-            fontSize = 14.sp,
+            fontSize = 14.5.sp,
             fontWeight = FontWeight.ExtraBold,
+            maxLines = 1,
         )
     }
 }
+

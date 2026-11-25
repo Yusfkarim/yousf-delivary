@@ -171,14 +171,14 @@ fun CustomerCard(
             }
         }
 
-        if (customer.hasWhatsapp || customer.hasViber || extras.isNotEmpty()) {
+        // The three big pills below already carry the real WhatsApp / Viber marks,
+        // so no second row of little badges is drawn any more.
+        if (extras.isNotEmpty()) {
             Row(
                 modifier = Modifier.padding(top = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (customer.hasWhatsapp) MessengerBadge("واتسئەپ", WhatsAppBrand, AppIcons.whatsapp())
-                if (customer.hasViber) MessengerBadge("ڤایبەر", ViberBrand, AppIcons.viber())
                 if (extras.isNotEmpty()) {
                     Row(
                         modifier = Modifier
@@ -218,14 +218,6 @@ fun CustomerCard(
         AnimatedVisibility(visible = extrasExpanded) {
             Column(Modifier.padding(top = 6.dp)) {
                 extras.forEach { extra ->
-                    Row(
-                        modifier = Modifier.padding(top = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (extra.hasWhatsapp) MessengerBadge("واتسئەپ", WhatsAppBrand, AppIcons.whatsapp())
-                        if (extra.hasViber) MessengerBadge("ڤایبەر", ViberBrand, AppIcons.viber())
-                    }
                     PhoneActionRow(
                         number = PhoneUtils.pretty(extra.number),
                         onCall = { IntentUtils.dial(context, extra.number) },
