@@ -9,11 +9,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -256,6 +253,12 @@ fun HomeScreen(viewModel: MainViewModel) {
     val activeList = if (isShops) shops else customers
     val activeVisible = if (isShops) visibleShops else visibleCustomers
 
+    // Distances are pure data: compute them once per list/GPS change instead of
+    // reading location state inside every card while the list scrolls.
+    val distances = remember(activeVisible, myLocation) {
+        activeVisible.associate { row -> row.id to viewModel.distanceTo(row) }
+    }
+
     Scaffold(
         containerColor = colors.background,
         topBar = {
@@ -319,13 +322,11 @@ fun HomeScreen(viewModel: MainViewModel) {
                         ) {
                             if (syncIssue != null) {
                                 item {
-                                    Box(Modifier.animateItem()) {
                                     ServerNotice(
                                         code = syncIssue ?: 0,
                                         onRetry = { viewModel.retrySync() },
                                         onFixAddress = { viewModel.resetServerAddress() },
                                     )
-                                    }
                                 }
                             }
                             if (activeVisible.isEmpty()) {
@@ -348,10 +349,9 @@ fun HomeScreen(viewModel: MainViewModel) {
                                 }
                             }
                             items(items = activeVisible, key = { it.id }) { customer ->
-                                Box(Modifier.animateItem()) {
                                 CustomerCard(
                                     customer = customer,
-                                    distanceMeters = viewModel.distanceTo(customer),
+                                    distanceMeters = distances[customer.id],
                                     onOpen = { profileTarget = customer },
                                     onOpenRoute = { routeTarget = customer },
                                     onEdit = {
@@ -361,7 +361,6 @@ fun HomeScreen(viewModel: MainViewModel) {
                                     },
                                     onDelete = { deleteTarget = customer },
                                 )
-                                }
                             }
                         }
                     }
@@ -735,19 +734,9 @@ private fun SettingsButton(onClick: () -> Unit) {
     }
 }
 
-/** Brand badge with a slow light sweep — cheap: one animation on the screen. */
+/** Brand badge with a fixed glass sheen — no per-frame animation, so lists scroll smoothly. */
 @Composable
 private fun ShiningBrand(size: androidx.compose.ui.unit.Dp) {
-    val transition = rememberInfiniteTransition(label = "brand")
-    val sweep by transition.animateFloat(
-        initialValue = -0.6f,
-        targetValue = 1.6f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2600),
-            repeatMode = RepeatMode.Restart,
-        ),
-        label = "sweep",
-    )
     Box {
         BrandBadge(size = size)
         Box(
@@ -759,13 +748,9 @@ private fun ShiningBrand(size: androidx.compose.ui.unit.Dp) {
                     val w = this.size.width.toFloat()
                     drawRect(
                         brush = Brush.horizontalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.White.copy(alpha = 0.35f),
-                                Color.Transparent,
-                            ),
-                            startX = sweep * w,
-                            endX = sweep * w + w * 0.5f,
+                            colors = listOf(Color.White.copy(alpha = 0.22f), Color.Transparent),
+                            startX = 0f,
+                            endX = w * 0.65f,
                         ),
                     )
                 },
@@ -907,13 +892,6 @@ private fun NavItem(
                     scaleX = scale
                     scaleY = scale
                 }
-                .shadow(
-                    (12.dp * highlight),
-                    RoundedCornerShape(50),
-                    clip = false,
-                    ambientColor = colors.brand.copy(alpha = 0.35f * highlight),
-                    spotColor = colors.brand.copy(alpha = 0.35f * highlight),
-                )
                 .clip(RoundedCornerShape(50))
                 .background(
                     if (highlight <= 0.01f) {
@@ -925,6 +903,18 @@ private fun NavItem(
                                 colors.brandSoft,
                             ),
                         )
+                    },
+                )
+                .then(
+                    if (selected) {
+                        Modifier.gloss3D(
+                            radius = 22.dp,
+                            sheen = 0.38f,
+                            shade = 0.14f,
+                            bevel = Color.White.copy(alpha = 0.60f),
+                        )
+                    } else {
+                        Modifier
                     },
                 )
                 .border(

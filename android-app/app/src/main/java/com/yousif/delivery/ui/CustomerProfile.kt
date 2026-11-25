@@ -401,9 +401,10 @@ private fun ActionTile(
     Column(
         modifier = modifier
             .height(68.dp)
-            .shadow(9.dp, shape, clip = false, ambientColor = brand.copy(alpha = 0.30f), spotColor = brand.copy(alpha = 0.30f))
+            .softDepth(radius = 16.dp, color = brand.copy(alpha = 0.30f), offsetY = 4.dp, spread = 4.dp)
             .clip(shape)
             .background(Brush.verticalGradient(listOf(lerp(soft, Color.White, 0.30f), soft)))
+            .gloss3D(radius = 16.dp, sheen = 0.36f, shade = 0.10f, bevel = Color.White.copy(alpha = 0.55f))
             .border(1.dp, Color.White.copy(alpha = 0.45f), shape)
             .clickable(onClick = onClick)
             .padding(vertical = 6.dp),
@@ -413,13 +414,14 @@ private fun ActionTile(
         Box(
             modifier = Modifier
                 .size(25.dp)
-                .shadow(6.dp, CircleShape, clip = false, ambientColor = brand.copy(alpha = 0.6f), spotColor = brand.copy(alpha = 0.6f))
+                .softDepth(radius = 12.dp, color = brand.copy(alpha = 0.55f), offsetY = 2.dp, spread = 2.dp)
                 .clip(CircleShape)
                 .background(
                     Brush.verticalGradient(
                         listOf(lerp(brand, Color.White, 0.28f), brand, lerp(brand, Color.Black, 0.12f)),
                     ),
-                ),
+                )
+                .gloss3D(radius = 13.dp, sheen = 0.32f, shade = 0.16f, bevel = Color.White.copy(alpha = 0.45f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(

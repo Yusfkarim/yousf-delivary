@@ -24,7 +24,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -61,8 +63,32 @@ fun CustomerCard(
             Box(
                 modifier = Modifier
                     .size(50.dp)
+                    .softDepth(
+                        radius = 16.dp,
+                        color = (if (customer.isShop) colors.successSoft else colors.brandSoft)
+                            .copy(alpha = 0.55f),
+                        offsetY = 3.dp,
+                        spread = 3.dp,
+                    )
                     .clip(RoundedCornerShape(16.dp))
-                    .background(if (customer.isShop) colors.successSoft else colors.brandSoft),
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                lerp(
+                                    if (customer.isShop) colors.successSoft else colors.brandSoft,
+                                    Color.White,
+                                    0.45f,
+                                ),
+                                if (customer.isShop) colors.successSoft else colors.brandSoft,
+                            ),
+                        ),
+                    )
+                    .gloss3D(
+                        radius = 16.dp,
+                        sheen = 0.30f,
+                        shade = 0.10f,
+                        bevel = Color.White.copy(alpha = 0.55f),
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 if (customer.isShop) {
