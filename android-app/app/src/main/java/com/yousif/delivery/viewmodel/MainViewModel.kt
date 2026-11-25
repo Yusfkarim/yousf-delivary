@@ -387,6 +387,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     item.copy(
                         customerId = owner.id,
                         customerName = owner.name,
+                        ownerKey = "",
                         updatedAt = now,
                     ).toEntity()
                 },
@@ -397,6 +398,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteGood(item: GoodItem) {
         viewModelScope.launch { goodDao.delete(item.id) }
+    }
+
+    /** Inline rename of one good — the rest of the cell stays exactly as it is. */
+    fun renameGood(item: GoodItem, title: String) {
+        val clean = title.trim()
+        if (clean.isEmpty()) return
+        viewModelScope.launch {
+            goodDao.setTitle(item.id, clean, System.currentTimeMillis())
+        }
+    }
+
+    /** «تێبینی» belongs to the whole cell — one write updates every good in it. */
+    fun setGoodsNote(items: List<GoodItem>, note: String) {
+        if (items.isEmpty()) return
+        val clean = note.trim()
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            withContext(Dispatchers.IO) {
+                goodDao.upsertAll(
+                    items.map { item -> item.copy(note = clean, updatedAt = now).toEntity() },
+                )
+            }
+        }
     }
 
     fun bumpGood(item: GoodItem, delta: Int) {

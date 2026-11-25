@@ -35,7 +35,18 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
-@Database(entities = [CustomerEntity::class, GoodEntity::class], version = 3, exportSchema = false)
+/**
+ * v4 gives every unassigned «خانەی کاڵا» its own identity (`ownerKey`), so a new
+ * «بێ کەس» cell never swallows the goods of the one before it. Additive again —
+ * no good is ever thrown away by the upgrade.
+ */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE goods ADD COLUMN ownerKey TEXT NOT NULL DEFAULT ''")
+    }
+}
+
+@Database(entities = [CustomerEntity::class, GoodEntity::class], version = 4, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun customerDao(): CustomerDao
     abstract fun goodDao(): GoodDao

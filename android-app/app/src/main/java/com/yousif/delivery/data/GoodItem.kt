@@ -26,6 +26,7 @@ data class GoodEntity(
     val note: String,
     val customerId: String?,
     val customerName: String?,
+    val ownerKey: String,
     val createdAt: Long,
     val updatedAt: Long,
 )
@@ -38,6 +39,12 @@ data class GoodItem(
     val note: String = "",
     val customerId: String? = null,
     val customerName: String? = null,
+    /**
+     * Identity of the «خانەی کاڵا» (goods cell) when the goods have **no** person.
+     * Every unassigned cell gets its own key, so two «بێ کەس» cells never merge.
+     * Empty for goods that belong to a real customer.
+     */
+    val ownerKey: String = "",
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
 ) {
@@ -52,6 +59,7 @@ fun GoodEntity.toDomain(): GoodItem = GoodItem(
     note = note,
     customerId = customerId,
     customerName = customerName,
+    ownerKey = ownerKey,
     createdAt = createdAt,
     updatedAt = updatedAt,
 )
@@ -63,6 +71,7 @@ fun GoodItem.toEntity(): GoodEntity = GoodEntity(
     note = note,
     customerId = customerId,
     customerName = customerName,
+    ownerKey = ownerKey,
     createdAt = createdAt,
     updatedAt = updatedAt,
 )
@@ -87,6 +96,10 @@ interface GoodDao {
 
     @Query("UPDATE goods SET quantity = :quantity, updatedAt = :updatedAt WHERE id = :id")
     suspend fun setQuantity(id: String, quantity: Int, updatedAt: Long)
+
+    /** Inline rename: the name of one good changes, nothing else moves. */
+    @Query("UPDATE goods SET title = :title, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun setTitle(id: String, title: String, updatedAt: Long)
 
     /** When a customer is removed, his goods stay but lose the link. */
     @Query("UPDATE goods SET customerId = NULL, customerName = NULL WHERE customerId = :customerId")

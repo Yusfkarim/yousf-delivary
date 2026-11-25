@@ -195,6 +195,7 @@ fun HomeScreen(viewModel: MainViewModel) {
     var editingGood by remember { mutableStateOf<com.yousif.delivery.data.GoodItem?>(null) }
     var presetCustomerId by remember { mutableStateOf<String?>(null) }
     var presetCustomerName by remember { mutableStateOf<String?>(null) }
+    var presetOwnerKey by remember { mutableStateOf("") }
     var prefill by remember { mutableStateOf<MapPoint?>(null) }
     var pendingGpsCallback by remember { mutableStateOf<((Double, Double) -> Unit)?>(null) }
 
@@ -373,16 +374,13 @@ fun HomeScreen(viewModel: MainViewModel) {
                     goods = goods,
                     people = everyone,
                     onBump = { item, delta -> viewModel.bumpGood(item, delta) },
-                    onEdit = { item ->
-                        presetCustomerId = null
-                        presetCustomerName = null
-                        editingGood = item
-                        showGoodSheet = true
-                    },
+                    onRename = { item, title -> viewModel.renameGood(item, title) },
+                    onNoteChange = { items, note -> viewModel.setGoodsNote(items, note) },
                     onDelete = { item -> viewModel.deleteGood(item) },
-                    onAddFor = { customerId, customerName ->
+                    onAddFor = { customerId, customerName, ownerKey ->
                         presetCustomerId = customerId
                         presetCustomerName = customerName
+                        presetOwnerKey = ownerKey
                         editingGood = null
                         showGoodSheet = true
                     },
@@ -411,6 +409,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                         editingGood = null
                         presetCustomerId = null
                         presetCustomerName = null
+                        presetOwnerKey = java.util.UUID.randomUUID().toString()
                         showGoodSheet = true
                     } else {
                         editing = null
@@ -485,11 +484,13 @@ fun HomeScreen(viewModel: MainViewModel) {
             customers = customers,
             presetCustomerId = presetCustomerId,
             presetCustomerName = presetCustomerName,
+            presetOwnerKey = presetOwnerKey,
             onDismiss = {
                 showGoodSheet = false
                 editingGood = null
                 presetCustomerId = null
                 presetCustomerName = null
+                presetOwnerKey = ""
             },
             onSave = { items ->
                 viewModel.saveGoods(items) {
@@ -497,6 +498,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                     editingGood = null
                     presetCustomerId = null
                     presetCustomerName = null
+                    presetOwnerKey = ""
                 }
             },
             onAutoSave = { items -> viewModel.saveGoods(items) },
@@ -506,6 +508,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                     editingGood = null
                     presetCustomerId = null
                     presetCustomerName = null
+                    presetOwnerKey = ""
                 }
             },
         )
