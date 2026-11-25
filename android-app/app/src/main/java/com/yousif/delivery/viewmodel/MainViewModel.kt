@@ -467,6 +467,43 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * «دانانی کەس» by picking him from the list — no number needed. The goods of
+     * the cell move to him at once, by their own id, so nothing is duplicated.
+     */
+    fun assignGoodsToPerson(
+        items: List<GoodItem>,
+        customerId: String,
+        onDone: () -> Unit = {},
+    ) {
+        if (items.isEmpty()) return
+        viewModelScope.launch {
+            val person = allRecords.value.firstOrNull { it.id == customerId }
+                ?: withContext(Dispatchers.IO) {
+                    repository.allOnce().firstOrNull { it.id == customerId }
+                }
+            if (person == null) {
+                onDone()
+                return@launch
+            }
+            val now = System.currentTimeMillis()
+            withContext(Dispatchers.IO) {
+                goodDao.upsertAll(
+                    items.map { item ->
+                        item.copy(
+                            customerId = person.id,
+                            customerName = person.name,
+                            ownerKey = "",
+                            updatedAt = now,
+                        ).toEntity()
+                    },
+                )
+            }
+            emit("کاڵاکان بۆ «" + person.name + "» دانران")
+            onDone()
+        }
+    }
+
     /** «دانانی کەس» from inside a cell — the number belongs to that cell. */
     fun assignGoodsOwner(
         items: List<GoodItem>,
