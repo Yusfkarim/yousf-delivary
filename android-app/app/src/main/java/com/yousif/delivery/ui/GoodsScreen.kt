@@ -94,7 +94,9 @@ fun GoodsScreen(
     onNoteChange: (List<GoodItem>, String) -> Unit,
     onAssignOwner: (List<GoodItem>, String, String, String?) -> Unit,
     onDelete: (GoodItem) -> Unit,
-    onAddFor: (String?, String?, String?) -> Unit,
+    onAddGood: (GoodItem) -> Unit,
+    /** Incremented by the «+» of the bottom bar: open a brand-new empty cell. */
+    newCellSignal: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalAppColors.current
@@ -103,6 +105,16 @@ fun GoodsScreen(
     var openKey by remember { mutableStateOf<String?>(null) }
     /** A cell that was just created and has no good in it yet. */
     var freshKey by remember { mutableStateOf<String?>(null) }
+
+    /* The bottom «+» of the goods tab also just opens a new cell — importing a
+       person and goods is never forced through a separate page. */
+    LaunchedEffect(newCellSignal) {
+        if (newCellSignal > 0) {
+            val key = UUID.randomUUID().toString()
+            freshKey = key
+            openKey = key
+        }
+    }
 
     val groups = remember(goods, people) {
         val byId = people.associateBy { it.id }
@@ -161,17 +173,16 @@ fun GoodsScreen(
             onBump = onBump,
             onRename = onRename,
             onNoteChange = onNoteChange,
-            onAssignOwner = onAssignOwner,
-            onDelete = { item -> deleteTarget = item },
-            onAdd = {
-                /* Inside the cell: same person, or the very same «بێ کەس» cell. */
-                val personId = open.customerId
-                if (personId != null) {
-                    onAddFor(personId, open.name, "")
-                } else {
-                    onAddFor(null, null, if (open.key == NOBODY_KEY) "" else open.key)
-                }
+            onAssignOwner = { items, phone, name, currentId ->
+                /* When the number already belongs to a saved person we stay on
+                   his page (the cell keeps its goods); otherwise the list shows
+                   the new person with his goods. */
+                val target = matchedPerson(phone, people)
+                onAssignOwner(items, phone, name, currentId)
+                if (target != null) openKey = target.id
             },
+            onDelete = { item -> deleteTarget = item },
+            onAddGood = onAddGood,
             modifier = modifier,
         )
     }
@@ -435,12 +446,40 @@ private fun OwnerDetail(
     onNoteChange: (List<GoodItem>, String) -> Unit,
     onAssignOwner: (List<GoodItem>, String, String, String?) -> Unit,
     onDelete: (GoodItem) -> Unit,
-    onAdd: () -> Unit,
+    onAddGood: (GoodItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalAppColors.current
     val nobody = group.customerId == null
     val isShop = group.kind == Kinds.SHOP
+
+    /* «زیادکردنی کاڵا» stays **on this page**: a new empty row opens inside the
+       same card. The big sheet is only for a brand-new order/person. */
+    var adding by remember(group.key) { mutableStateOf(false) }
+    var newTitle by remember(group.key) { mutableStateOf("") }
+    var newQuantity by remember(group.key) { mutableStateOf(1) }
+    val focus = LocalFocusManager.current
+
+    fun saveNewRow() {
+        val clean = newTitle.trim()
+        if (clean.isEmpty()) return
+        onAddGood(
+            GoodItem(
+                id = UUID.randomUUID().toString(),
+                title = clean,
+                quantity = newQuantity.coerceAtLeast(1),
+                customerId = group.customerId,
+                customerName = if (group.customerId != null) group.name else null,
+                ownerKey = if (group.customerId != null) {
+                    ""
+                } else {
+                    if (group.key == NOBODY_KEY) "" else group.key
+                },
+            ),
+        )
+        newTitle = ""
+        newQuantity = 1
+    }
 
     Column(modifier.fillMaxSize()) {
         Row(
@@ -499,7 +538,7 @@ private fun OwnerDetail(
                 )
             }
 
-            if (group.items.isEmpty()) {
+            if (group.items.isEmpty() && !adding) {
                 item {
                     GlassEmptyState(
                         icon = AppIcons.packageBox(),
@@ -519,6 +558,28 @@ private fun OwnerDetail(
                                 onRename = onRename,
                                 onBump = onBump,
                                 onDelete = onDelete,
+                            )
+                        }
+                        if (adding) {
+                            if (group.items.isNotEmpty()) DividerLine()
+                            NewGoodLine(
+                                index = group.items.size,
+                                title = newTitle,
+                                quantity = newQuantity,
+                                onTitle = { newTitle = it },
+                                onQuantity = { delta ->
+                                    newQuantity = (newQuantity + delta).coerceIn(1, 9999)
+                                },
+                                onSave = {
+                                    saveNewRow()
+                                    focus.clearFocus()
+                                },
+                                onCancel = {
+                                    adding = false
+                                    newTitle = ""
+                                    newQuantity = 1
+                                    focus.clearFocus()
+                                },
                             )
                         }
                     }
@@ -543,7 +604,13 @@ private fun OwnerDetail(
             item {
                 DashedAddButton(
                     label = "زیادکردنی کاڵا بۆ ئەم کەسە",
-                    onClick = onAdd,
+                    onClick = {
+                        if (adding) {
+                            saveNewRow()
+                        } else {
+                            adding = true
+                        }
+                    },
                 )
             }
         }
@@ -884,6 +951,139 @@ private fun GoodLine(
                     contentDescription = "سڕینەوە",
                     tint = colors.textMuted,
                     modifier = Modifier.size(16.dp),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The inline «کاڵای نوێ» row of a cell — number, name, quantity, ✓ and ×.
+ * It lives **inside** the same card, so adding a good never leaves this page.
+ */
+@Composable
+private fun NewGoodLine(
+    index: Int,
+    title: String,
+    quantity: Int,
+    onTitle: (String) -> Unit,
+    onQuantity: (Int) -> Unit,
+    onSave: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val colors = LocalAppColors.current
+    Column(Modifier.padding(vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(colors.brand),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = TextUtils.toKurdish((index + 1).toString()),
+                    color = colors.onBrand,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+            }
+            Spacer(Modifier.width(9.dp))
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(13.dp))
+                    .background(colors.surfaceSunken)
+                    .border(1.dp, colors.brand.copy(alpha = 0.5f), RoundedCornerShape(13.dp))
+                    .padding(horizontal = 10.dp, vertical = 9.dp),
+            ) {
+                BasicTextField(
+                    value = title,
+                    onValueChange = onTitle,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    textStyle = TextStyle(
+                        fontSize = 14.sp,
+                        color = colors.textPrimary,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                    cursorBrush = SolidColor(colors.brand),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { onSave() }),
+                    decorationBox = { inner ->
+                        Box(contentAlignment = Alignment.CenterStart) {
+                            if (title.isEmpty()) {
+                                Text(
+                                    text = "ناوی کاڵا بنووسە…",
+                                    color = colors.textMuted,
+                                    fontSize = 12.5.sp,
+                                )
+                            }
+                            inner()
+                        }
+                    },
+                )
+            }
+        }
+
+        Spacer(Modifier.height(9.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(colors.surfaceSunken)
+                    .border(1.dp, colors.border, RoundedCornerShape(50))
+                    .padding(3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StepCircle(AppIcons.minus()) { onQuantity(-1) }
+                Box(Modifier.width(36.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = TextUtils.toKurdish(quantity.toString()),
+                        color = colors.textPrimary,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                }
+                StepCircle(AppIcons.plus()) { onQuantity(1) }
+            }
+            Spacer(Modifier.weight(1f))
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(50))
+                    .clickable(onClick = onCancel),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    AppIcons.close(),
+                    contentDescription = "پاشگەزبوونەوە",
+                    tint = colors.textMuted,
+                    modifier = Modifier.size(17.dp),
+                )
+            }
+            Spacer(Modifier.width(7.dp))
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(colors.brand)
+                    .clickable(onClick = onSave)
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    AppIcons.check(),
+                    contentDescription = null,
+                    tint = colors.onBrand,
+                    modifier = Modifier.size(15.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "زیادکردن",
+                    color = colors.onBrand,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.ExtraBold,
                 )
             }
         }
