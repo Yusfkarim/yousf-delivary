@@ -64,6 +64,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -129,14 +130,14 @@ private fun ServerNotice(
                 Text(
                     text = title,
                     color = colors.textPrimary,
-                    fontSize = 13.sp,
+                    fontSize = 14.0.sp,
                     fontWeight = FontWeight.ExtraBold,
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = hint,
                     color = colors.textSecondary,
-                    fontSize = 11.sp,
+                    fontSize = 12.0.sp,
                 )
             }
         }
@@ -313,7 +314,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                     ) {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 132.dp),
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 146.dp),
                             verticalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
                             if (syncIssue != null) {
@@ -518,7 +519,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                 Text(
                     "دڵنیایی لە سڕینەوەی «${customer.name}»؟ ئەم کارە لە سێرڤەریش دەسڕدرێتەوە.",
                     color = colors.textSecondary,
-                    fontSize = 13.sp,
+                    fontSize = 14.0.sp,
                 )
             },
             confirmButton = {
@@ -596,7 +597,7 @@ private fun HomeHeader(
                         Text(
                             text = TextUtils.toKurdish(pending.toString()),
                             color = colors.onBrand,
-                            fontSize = 8.sp,
+                            fontSize = 9.5.sp,
                             fontWeight = FontWeight.Bold,
                         )
                     }
@@ -606,12 +607,12 @@ private fun HomeHeader(
             Spacer(Modifier.weight(1f))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                ShiningBrand(size = 26.dp)
+                ShiningBrand(size = 27.dp)
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = "یوسف دلیڤەری",
                     color = colors.brand,
-                    fontSize = 13.sp,
+                    fontSize = 15.5.sp,
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = 0.6.sp,
                     maxLines = 1,
@@ -697,7 +698,7 @@ private fun MiniChip(
         Text(
             text = text,
             color = tint,
-            fontSize = 10.5.sp,
+            fontSize = 12.0.sp,
             fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium,
         )
     }
@@ -836,7 +837,7 @@ private fun HomeBottomBar(
                 },
             )
             .border(1.2.dp, if (colors.isDark) Color(0xFF4A3A31) else Color(0xFFFFFFFF), shape)
-            .padding(start = 8.dp, end = 8.dp, top = 7.dp, bottom = 7.dp),
+            .padding(start = 7.dp, end = 7.dp, top = 9.dp, bottom = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         PillButton(
@@ -845,14 +846,14 @@ private fun HomeBottomBar(
             icon = AppIcons.plus(),
             container = colors.brand,
             contentColor = colors.onBrand,
-            modifier = Modifier.width(74.dp),
-            height = 48.dp,
-            fontSize = 13,
+            modifier = Modifier.width(70.dp),
+            height = 54.dp,
+            fontSize = 14,
         )
-        Spacer(Modifier.width(4.dp))
+        Spacer(Modifier.width(3.dp))
         NavItem(
             icon = AppIcons.user(),
-            label = "کڕیارەکان",
+            label = "کڕیار",
             selected = tab == HomeTab.CUSTOMERS,
             modifier = Modifier.weight(1f),
         ) { onTab(HomeTab.CUSTOMERS) }
@@ -895,19 +896,19 @@ private fun NavItem(
         modifier = modifier
             .clip(RoundedCornerShape(50))
             .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
+            .padding(vertical = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
             modifier = Modifier
-                .size(38.dp)
+                .size(44.dp)
                 .graphicsLayer {
                     val scale = 0.92f + 0.08f * highlight
                     scaleX = scale
                     scaleY = scale
                 }
                 .shadow(
-                    (10.dp * highlight),
+                    (12.dp * highlight),
                     RoundedCornerShape(50),
                     clip = false,
                     ambientColor = colors.brand.copy(alpha = 0.35f * highlight),
@@ -936,17 +937,19 @@ private fun NavItem(
             Icon(
                 icon,
                 contentDescription = label,
-                tint = if (selected) colors.brand else colors.textMuted,
-                modifier = Modifier.size(23.dp),
+                tint = if (selected) colors.brandDeep else colors.textSecondary,
+                modifier = Modifier.size(27.dp),
             )
         }
-        Spacer(Modifier.height(2.dp))
+        Spacer(Modifier.height(3.dp))
         Text(
             text = label,
-            color = if (selected) colors.brandDeep else colors.textMuted,
-            fontSize = 10.5.sp,
-            fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.SemiBold,
+            color = if (selected) colors.brandDeep else colors.textSecondary,
+            fontSize = 12.5.sp,
+            fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Bold,
             maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
