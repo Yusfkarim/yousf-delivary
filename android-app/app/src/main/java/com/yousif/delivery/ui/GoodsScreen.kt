@@ -378,9 +378,9 @@ private fun OwnerCard(group: GoodGroup, onClick: () -> Unit, onDelete: () -> Uni
                     Text(
                         text = "${TextUtils.toKurdish(group.items.size.toString())} جۆر · " +
                             "${TextUtils.toKurdish(pieces.toString())} دانە",
-                        color = colors.textSecondary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
+                        color = colors.textPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.ExtraBold,
                     )
                 }
             }
@@ -463,8 +463,8 @@ private fun OwnerDetail(
                 Text(
                     text = TextUtils.toKurdish(group.items.size.toString()) + " جۆری کاڵا",
                     color = colors.textSecondary,
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
                 )
             }
             if (!nobody) {
@@ -570,7 +570,7 @@ private fun GoodLine(
     ) {
         Box(
             modifier = Modifier
-                .size(28.dp)
+                .size(34.dp)
                 .clip(RoundedCornerShape(50))
                 .background(colors.brand),
             contentAlignment = Alignment.Center,
@@ -578,7 +578,7 @@ private fun GoodLine(
             Text(
                 text = TextUtils.toKurdish((index + 1).toString()),
                 color = colors.onBrand,
-                fontSize = 12.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.ExtraBold,
             )
         }
@@ -695,11 +695,11 @@ private fun GoodLine(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 StepCircle(AppIcons.minus()) { onBump(item, -1) }
-                Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.width(36.dp), contentAlignment = Alignment.Center) {
                     Text(
                         text = TextUtils.toKurdish(item.total.toString()),
                         color = colors.textPrimary,
-                        fontSize = 13.5.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.ExtraBold,
                     )
                 }
@@ -1271,7 +1271,7 @@ private fun GoodRow(
             Text(
                 text = TextUtils.toKurdish((index + 1).toString()),
                 color = colors.onBrand,
-                fontSize = 12.5.sp,
+                fontSize = 14.5.sp,
                 fontWeight = FontWeight.ExtraBold,
             )
         }
@@ -1311,11 +1311,11 @@ private fun GoodRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             StepCircle(AppIcons.minus()) { onQuantity(-1) }
-            Box(Modifier.width(30.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.width(34.dp), contentAlignment = Alignment.Center) {
                 Text(
                     text = TextUtils.toKurdish(quantity.toString()),
                     color = colors.textPrimary,
-                    fontSize = 14.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.ExtraBold,
                 )
             }
@@ -1344,7 +1344,7 @@ private fun StepCircle(icon: androidx.compose.ui.graphics.vector.ImageVector, on
     val colors = LocalAppColors.current
     Box(
         modifier = Modifier
-            .size(28.dp)
+            .size(30.dp)
             .shadow(5.dp, RoundedCornerShape(50), clip = false, ambientColor = colors.brand.copy(alpha = 0.4f), spotColor = colors.brand.copy(alpha = 0.4f))
             .clip(RoundedCornerShape(50))
             .background(
@@ -1360,7 +1360,7 @@ private fun StepCircle(icon: androidx.compose.ui.graphics.vector.ImageVector, on
             icon,
             contentDescription = null,
             tint = colors.brandDeep,
-            modifier = Modifier.size(14.dp),
+            modifier = Modifier.size(15.dp),
         )
     }
 }
