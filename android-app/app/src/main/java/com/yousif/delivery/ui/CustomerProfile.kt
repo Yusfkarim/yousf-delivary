@@ -306,15 +306,6 @@ fun CustomerProfile(
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 2,
                                     )
-                                    if (item.note.isNotBlank()) {
-                                        Text(
-                                            text = item.note,
-                                            color = colors.textMuted,
-                                            fontSize = 10.5.sp,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                    }
                                 }
                                 Text(
                                     text = "×" + TextUtils.toKurdish(item.total.toString()),

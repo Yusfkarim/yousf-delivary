@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -77,30 +78,40 @@ import androidx.compose.ui.graphics.Brush
  * The screen only lists the people who have goods (their full name, whether they
  * are a customer or a shop, and how many goods). Tapping one opens that person's
  * own page with every good inside — two customers can never be mixed up on the
- * same screen any more. Goods without an owner live under «بێ کەس».
+ * same screen any more.
+ *
+ * The list is a list of **cells** («خانەی کاڵا»). Every cell keeps its own goods:
+ * a new cell that is left without a person is a *new* «بێ کەس» — it never joins
+ * the one before it. Goods are only written inside a cell, never at the list
+ * level, and a good is renamed in place (the pencil) instead of opening a page.
  */
 @Composable
 fun GoodsScreen(
     goods: List<GoodItem>,
     people: List<Customer>,
     onBump: (GoodItem, Int) -> Unit,
-    onEdit: (GoodItem) -> Unit,
+    onRename: (GoodItem, String) -> Unit,
+    onNoteChange: (List<GoodItem>, String) -> Unit,
     onDelete: (GoodItem) -> Unit,
-    onAddFor: (String?, String?) -> Unit,
+    onAddFor: (String?, String?, String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalAppColors.current
     var deleteTarget by remember { mutableStateOf<GoodItem?>(null) }
     var groupTarget by remember { mutableStateOf<GoodGroup?>(null) }
     var openKey by remember { mutableStateOf<String?>(null) }
+    /** A cell that was just created and has no good in it yet. */
+    var freshKey by remember { mutableStateOf<String?>(null) }
 
     val groups = remember(goods, people) {
         val byId = people.associateBy { it.id }
-        goods.groupBy { item -> item.customerId ?: NOBODY_KEY }
+        goods.groupBy { item -> item.customerId ?: item.ownerKey.ifBlank { NOBODY_KEY } }
             .map { (key, items) ->
                 val person = items.firstNotNullOfOrNull { item -> item.customerId?.let { byId[it] } }
                 GoodGroup(
                     key = key,
+                    customerId = person?.id
+                        ?: items.firstNotNullOfOrNull { item -> item.customerId },
                     name = person?.name
                         ?: items.firstNotNullOfOrNull { item ->
                             item.customerName?.takeIf { name -> name.isNotBlank() }
@@ -113,6 +124,16 @@ fun GoodsScreen(
     }
 
     val open = groups.firstOrNull { group -> group.key == openKey }
+        ?: openKey?.takeIf { key -> key == freshKey }
+            ?.let { key ->
+                GoodGroup(
+                    key = key,
+                    customerId = null,
+                    name = "بێ کەس",
+                    kind = null,
+                    items = emptyList(),
+                )
+            }
 
     if (open == null) {
         OwnerMenu(
@@ -120,18 +141,34 @@ fun GoodsScreen(
             totalGoods = goods.size,
             onOpen = { group -> openKey = group.key },
             onDeleteGroup = { group -> groupTarget = group },
-            onAdd = { onAddFor(null, null) },
+            onAdd = {
+                /* A new cell, never a merge into the «بێ کەس» of before. */
+                val key = UUID.randomUUID().toString()
+                freshKey = key
+                openKey = key
+            },
             modifier = modifier,
         )
     } else {
-        val nobody = open.key == NOBODY_KEY
         OwnerDetail(
             group = open,
-            onBack = { openKey = null },
+            onBack = {
+                if (open.key == freshKey) freshKey = null
+                openKey = null
+            },
             onBump = onBump,
-            onEdit = onEdit,
+            onRename = onRename,
+            onNoteChange = onNoteChange,
             onDelete = { item -> deleteTarget = item },
-            onAdd = { onAddFor(if (nobody) null else open.key, if (nobody) null else open.name) },
+            onAdd = {
+                /* Inside the cell: same person, or the very same «بێ کەس» cell. */
+                val personId = open.customerId
+                if (personId != null) {
+                    onAddFor(personId, open.name, "")
+                } else {
+                    onAddFor(null, null, if (open.key == NOBODY_KEY) "" else open.key)
+                }
+            },
             modifier = modifier,
         )
     }
@@ -260,8 +297,9 @@ private fun OwnerMenu(
                     GlassEmptyState(
                         icon = AppIcons.packageBox(),
                         title = "هێشتا هیچ کاڵایەک نییە",
-                        hint = "بە دوگمەی «زیادکردنی خانەی کاڵا» دەست پێبکە — ناوێک بنووسە، ژمارە دیاری بکە،\n" +
-                            "و ئەگەر ویستت کەسێک لە لیستی کڕیارەکان هەڵبژێرە.",
+                        hint = "بە دوگمەی «زیادکردنی خانەی کاڵا» خانەیەکی نوێ دروست دەبێت — " +
+                            "پاشان لەناو خۆی کاڵاکان بنووسە و ئەگەر ویستت کەسێک هەڵبژێرە. " +
+                            "هەر خانەیەک کاڵاکانی خۆی دەبێت، تێکەڵ نابن.",
                     )
                 }
             }
@@ -283,7 +321,7 @@ private fun OwnerMenu(
 @Composable
 private fun OwnerCard(group: GoodGroup, onClick: () -> Unit, onDelete: () -> Unit) {
     val colors = LocalAppColors.current
-    val nobody = group.key == NOBODY_KEY
+    val nobody = group.customerId == null
     val isShop = group.kind == Kinds.SHOP
     val pieces = group.items.sumOf { item -> item.total }
 
@@ -389,13 +427,14 @@ private fun OwnerDetail(
     group: GoodGroup,
     onBack: () -> Unit,
     onBump: (GoodItem, Int) -> Unit,
-    onEdit: (GoodItem) -> Unit,
+    onRename: (GoodItem, String) -> Unit,
+    onNoteChange: (List<GoodItem>, String) -> Unit,
     onDelete: (GoodItem) -> Unit,
     onAdd: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalAppColors.current
-    val nobody = group.key == NOBODY_KEY
+    val nobody = group.customerId == null
     val isShop = group.kind == Kinds.SHOP
 
     Column(modifier.fillMaxSize()) {
@@ -445,18 +484,44 @@ private fun OwnerDetail(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 132.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item {
-                GlassCard(padding = 12.dp, radius = 24.dp) {
-                    group.items.forEachIndexed { index, item ->
-                        if (index > 0) DividerLine()
-                        GoodLine(
-                            index = index,
-                            item = item,
-                            onBump = onBump,
-                            onEdit = onEdit,
-                            onDelete = onDelete,
-                        )
+            if (group.items.isEmpty()) {
+                item {
+                    GlassEmptyState(
+                        icon = AppIcons.packageBox(),
+                        title = "ئەم خانەیە بەتاڵە",
+                        hint = "کاڵاکانی ئەم خانەیە لە خۆی زیاد بکە — «زیادکردنی کاڵا بۆ ئەم کەسە» دابگرە، " +
+                            "پاشان کەسێک هەڵبژێرە یان بێ کەس بەجێی بهێڵە.",
+                    )
+                }
+            } else {
+                item {
+                    GlassCard(padding = 12.dp, radius = 24.dp) {
+                        group.items.forEachIndexed { index, item ->
+                            if (index > 0) DividerLine()
+                            GoodLine(
+                                index = index,
+                                item = item,
+                                onRename = onRename,
+                                onBump = onBump,
+                                onDelete = onDelete,
+                            )
+                        }
                     }
+                }
+            }
+
+            /* The note belongs to the whole cell — it is shown outside the goods,
+               never printed again under every single good. */
+            if (group.items.isNotEmpty()) {
+                val notes = group.items
+                    .map { item -> item.note.trim() }
+                    .filter { text -> text.isNotEmpty() }
+                    .distinct()
+                item {
+                    NoteCard(
+                        text = notes.joinToString(" · "),
+                        onSave = { text -> onNoteChange(group.items, text) },
+                    )
                 }
             }
 
@@ -470,16 +535,33 @@ private fun OwnerDetail(
     }
 }
 
-/** Number, name, note and the quantity stepper of one good. */
+/**
+ * Number, the name and the quantity stepper of one good.
+ *
+ * The name is edited **here**, in the row itself: the pencil opens a small field,
+ * the tick saves it. Tapping the row never opens another page.
+ */
 @Composable
 private fun GoodLine(
     index: Int,
     item: GoodItem,
+    onRename: (GoodItem, String) -> Unit,
     onBump: (GoodItem, Int) -> Unit,
-    onEdit: (GoodItem) -> Unit,
     onDelete: (GoodItem) -> Unit,
 ) {
     val colors = LocalAppColors.current
+    val focus = LocalFocusManager.current
+    var editing by remember(item.id) { mutableStateOf(false) }
+    var draft by remember(item.id) { mutableStateOf(item.title) }
+
+    fun commit() {
+        val clean = draft.trim()
+        if (clean.isNotEmpty() && clean != item.title) onRename(item, clean)
+        draft = item.title
+        editing = false
+        focus.clearFocus()
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -501,11 +583,80 @@ private fun GoodLine(
             )
         }
         Spacer(Modifier.width(9.dp))
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .clickable { onEdit(item) },
-        ) {
+
+        if (editing) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(13.dp))
+                    .background(colors.surfaceSunken)
+                    .border(1.dp, colors.brand.copy(alpha = 0.5f), RoundedCornerShape(13.dp))
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                BasicTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    textStyle = TextStyle(
+                        fontSize = 14.sp,
+                        color = colors.textPrimary,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                    cursorBrush = SolidColor(colors.brand),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { commit() }),
+                    decorationBox = { inner ->
+                        Box(contentAlignment = Alignment.CenterStart) {
+                            if (draft.isEmpty()) {
+                                Text(
+                                    text = "ناوی کاڵا بنووسە…",
+                                    color = colors.textMuted,
+                                    fontSize = 12.5.sp,
+                                )
+                            }
+                            inner()
+                        }
+                    },
+                )
+                Spacer(Modifier.width(6.dp))
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(colors.brand)
+                        .clickable { commit() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        AppIcons.check(),
+                        contentDescription = "پاشەکەوتکردنی ناو",
+                        tint = colors.onBrand,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.width(4.dp))
+            Box(
+                modifier = Modifier
+                    .size(26.dp)
+                    .clip(RoundedCornerShape(50))
+                    .clickable {
+                        draft = item.title
+                        editing = false
+                        focus.clearFocus()
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    AppIcons.close(),
+                    contentDescription = "پاشگەزبوونەوە",
+                    tint = colors.textMuted,
+                    modifier = Modifier.size(15.dp),
+                )
+            }
+        } else {
             Text(
                 text = item.title,
                 color = colors.textPrimary,
@@ -513,52 +664,172 @@ private fun GoodLine(
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
-            if (item.note.isNotBlank()) {
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = item.note,
-                    color = colors.textMuted,
-                    fontSize = 10.5.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+            Spacer(Modifier.width(5.dp))
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(colors.brand.copy(alpha = if (colors.isDark) 0.22f else 0.10f))
+                    .clickable {
+                        draft = item.title
+                        editing = true
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    AppIcons.edit(),
+                    contentDescription = "دەستکاری ناو",
+                    tint = colors.brandDeep,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+            Spacer(Modifier.width(6.dp))
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(colors.surfaceSunken)
+                    .border(1.dp, colors.border, RoundedCornerShape(50))
+                    .padding(3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StepCircle(AppIcons.minus()) { onBump(item, -1) }
+                Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = TextUtils.toKurdish(item.total.toString()),
+                        color = colors.textPrimary,
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                }
+                StepCircle(AppIcons.plus()) { onBump(item, 1) }
+            }
+            Spacer(Modifier.width(2.dp))
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(RoundedCornerShape(50))
+                    .clickable { onDelete(item) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    AppIcons.delete(),
+                    contentDescription = "سڕینەوە",
+                    tint = colors.textMuted,
+                    modifier = Modifier.size(16.dp),
                 )
             }
         }
-        Spacer(Modifier.width(6.dp))
-        Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(50))
-                .background(colors.surfaceSunken)
-                .border(1.dp, colors.border, RoundedCornerShape(50))
-                .padding(3.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            StepCircle(AppIcons.minus()) { onBump(item, -1) }
-            Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) {
-                Text(
-                    text = TextUtils.toKurdish(item.total.toString()),
-                    color = colors.textPrimary,
-                    fontSize = 13.5.sp,
-                    fontWeight = FontWeight.ExtraBold,
+    }
+}
+
+/**
+ * «تێبینی» of a cell — drawn once, **outside** the goods card.
+ *
+ * Tapping it opens a small field in place: the note is written and saved here,
+ * exactly like a good's name. Nothing opens a page of its own.
+ */
+@Composable
+private fun NoteCard(text: String, onSave: (String) -> Unit) {
+    val colors = LocalAppColors.current
+    val focus = LocalFocusManager.current
+    var editing by remember(text) { mutableStateOf(false) }
+    var draft by remember(text) { mutableStateOf(text) }
+
+    fun commit() {
+        if (draft.trim() != text) onSave(draft.trim())
+        editing = false
+        focus.clearFocus()
+    }
+
+    GlassCard(
+        padding = 13.dp,
+        radius = 22.dp,
+        onClick = {
+            if (!editing) {
+                draft = text
+                editing = true
+            }
+        },
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.brandSoft),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    AppIcons.edit(),
+                    contentDescription = null,
+                    tint = colors.brandDeep,
+                    modifier = Modifier.size(15.dp),
                 )
             }
-            StepCircle(AppIcons.plus()) { onBump(item, 1) }
-        }
-        Spacer(Modifier.width(2.dp))
-        Box(
-            modifier = Modifier
-                .size(30.dp)
-                .clip(RoundedCornerShape(50))
-                .clickable { onDelete(item) },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                AppIcons.delete(),
-                contentDescription = "سڕینەوە",
-                tint = colors.textMuted,
-                modifier = Modifier.size(16.dp),
-            )
+            Spacer(Modifier.width(10.dp))
+            if (editing) {
+                BasicTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    modifier = Modifier.weight(1f),
+                    textStyle = TextStyle(
+                        fontSize = 12.5.sp,
+                        color = colors.textPrimary,
+                        fontWeight = FontWeight.SemiBold,
+                    ),
+                    cursorBrush = SolidColor(colors.brand),
+                    maxLines = 3,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { commit() }),
+                    decorationBox = { inner ->
+                        Box(contentAlignment = Alignment.CenterStart) {
+                            if (draft.isEmpty()) {
+                                Text(
+                                    text = "تێبینی بنووسە…",
+                                    color = colors.textMuted,
+                                    fontSize = 12.sp,
+                                )
+                            }
+                            inner()
+                        }
+                    },
+                )
+                Spacer(Modifier.width(6.dp))
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(colors.brand)
+                        .clickable { commit() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        AppIcons.check(),
+                        contentDescription = "پاشەکەوتکردنی تێبینی",
+                        tint = colors.onBrand,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+            } else {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = "تێبینی",
+                        color = colors.brandDeep,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = text.ifBlank { "دەستبدە بۆ نووسینی تێبینی…" },
+                        color = if (text.isBlank()) colors.textMuted else colors.textSecondary,
+                        fontSize = 12.sp,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
         }
     }
 }
@@ -578,6 +849,7 @@ fun GoodSheet(
     onSave: (List<GoodItem>) -> Unit,
     presetCustomerId: String? = null,
     presetCustomerName: String? = null,
+    presetOwnerKey: String = "",
     onAutoSave: (List<GoodItem>) -> Unit = {},
     onSaveNewOwner: (List<GoodItem>, String /* name */, String /* phone */) -> Unit = { _, _, _ -> },
 ) {
@@ -601,6 +873,8 @@ fun GoodSheet(
     var query by remember { mutableStateOf("") }
     var customerId by remember { mutableStateOf(initial?.customerId ?: presetCustomerId) }
     var customerName by remember { mutableStateOf(initial?.customerName ?: presetCustomerName) }
+    /* Which «خانەی کاڵا» the goods belong to while they have no person. */
+    var ownerKey by remember { mutableStateOf(initial?.ownerKey ?: presetOwnerKey) }
     var error by remember { mutableStateOf<String?>(null) }
     var ownerPhone by remember { mutableStateOf("") }
     var ownerTypedName by remember { mutableStateOf("") }
@@ -635,6 +909,7 @@ fun GoodSheet(
                     note = note.trim(),
                     customerId = customerId,
                     customerName = customerName,
+                    ownerKey = if (customerId == null) ownerKey else "",
                     createdAt = if (draft.createdAt > 0) draft.createdAt else now,
                     updatedAt = now,
                 )
@@ -745,6 +1020,7 @@ fun GoodSheet(
                     if (found != null) {
                         customerId = found.id
                         customerName = found.name
+                        ownerKey = ""
                     }
                 },
                 placeholder = "ژمارەی کڕیار (بۆ دۆزینەوە یان زیادکردنی نوێ)…",
@@ -799,6 +1075,8 @@ fun GoodSheet(
                         onClick = {
                             customerId = null
                             customerName = null
+                            /* A cell of its own from now on — never merged. */
+                            if (ownerKey.isBlank()) ownerKey = UUID.randomUUID().toString()
                         },
                     )
                 }
@@ -809,6 +1087,7 @@ fun GoodSheet(
                         onClick = {
                             customerId = person.id
                             customerName = person.name
+                            ownerKey = ""
                             ownerPhone = person.primaryPhone
                             ownerTypedName = ""
                         },
@@ -1197,6 +1476,7 @@ private data class GoodDraft(
 /** Goods grouped under one owner. */
 private class GoodGroup(
     val key: String,
+    val customerId: String?,
     val name: String,
     val kind: String?,
     val items: List<GoodItem>,

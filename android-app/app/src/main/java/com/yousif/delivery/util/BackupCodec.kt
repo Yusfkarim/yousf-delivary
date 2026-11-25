@@ -47,6 +47,7 @@ object BackupCodec {
         val note: String? = null,
         val customerId: String? = null,
         val customerName: String? = null,
+        val ownerKey: String? = null,
         val createdAt: Long = 0L,
         val updatedAt: Long = 0L,
     )
@@ -95,6 +96,7 @@ object BackupCodec {
                     note = item.note,
                     customerId = item.customerId,
                     customerName = item.customerName,
+                    ownerKey = item.ownerKey.takeIf { it.isNotBlank() },
                     createdAt = item.createdAt,
                     updatedAt = item.updatedAt,
                 )
@@ -124,6 +126,7 @@ object BackupCodec {
                 note = entry.note?.trim().orEmpty(),
                 customerId = entry.customerId?.takeIf { it.isNotBlank() },
                 customerName = entry.customerName?.takeIf { it.isNotBlank() },
+                ownerKey = entry.ownerKey?.takeIf { it.isNotBlank() }.orEmpty(),
                 createdAt = if (entry.createdAt > 0) entry.createdAt else now + mediaSeq,
                 updatedAt = if (entry.updatedAt > 0) entry.updatedAt else now + mediaSeq,
             )

@@ -6,6 +6,7 @@ import com.yousif.delivery.data.AppDatabase
 import com.yousif.delivery.data.GoodDao
 import com.yousif.delivery.data.MIGRATION_1_2
 import com.yousif.delivery.data.MIGRATION_2_3
+import com.yousif.delivery.data.MIGRATION_3_4
 import com.yousif.delivery.data.CustomerRepository
 import com.yousif.delivery.data.remote.ApiClient
 import com.yousif.delivery.session.SessionStore
@@ -41,7 +42,7 @@ object AppGraph {
                 AppDatabase::class.java,
                 "yousif-delivery.db",
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .fallbackToDestructiveMigration()
                 .build()
                 .also { database = it }
