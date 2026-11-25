@@ -356,6 +356,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Saves goods that were typed together with a **new** owner: the phone number
+     * is matched against the saved people first, and only when nobody owns that
+     * number is a new customer created (locally now, on the server when online).
+     */
+    fun saveGoodsForOwner(
+        items: List<GoodItem>,
+        ownerName: String,
+        ownerPhone: String,
+        onDone: () -> Unit = {},
+    ) {
+        if (items.isEmpty()) return
+        viewModelScope.launch {
+            val digits = ownerPhone.filter(Char::isDigit).takeLast(9)
+            val existing = allRecords.value.firstOrNull { person ->
+                digits.length >= 7 && person.allPhones.any { number ->
+                    number.filter(Char::isDigit).takeLast(9) == digits
+                }
+            }
+            val owner = existing ?: Customer(
+                id = UUID.randomUUID().toString(),
+                name = ownerName.trim().ifBlank { "کڕیاری نوێ" },
+                primaryPhone = ownerPhone.trim(),
+                syncStatus = SyncStatus.PENDING_UPSERT,
+            ).also { fresh -> repository.save(fresh) }
+            val now = System.currentTimeMillis()
+            goodDao.upsertAll(
+                items.map { item ->
+                    item.copy(
+                        customerId = owner.id,
+                        customerName = owner.name,
+                        updatedAt = now,
+                    ).toEntity()
+                },
+            )
+            onDone()
+        }
+    }
+
     fun deleteGood(item: GoodItem) {
         viewModelScope.launch { goodDao.delete(item.id) }
     }
