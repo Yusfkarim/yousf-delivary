@@ -1,0 +1,5 @@
+release: v1.6.20
+tag: v1.6.20 -> main 0de8ac8 (PR #41)
+apk: https://yousif-delivary-apk.vercel.app/YousifDelivery-v1.6.20.apk
+sha256: 17b72d6baed7b1649273726e300e13dcf15644d8f71abdcc3e9bd18f5cc0dd23
+vercel build: dpl_4Px5HXip8VtLM9p3CJDPFp16TXw8
