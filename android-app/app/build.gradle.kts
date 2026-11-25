@@ -24,8 +24,8 @@ android {
         applicationId = "com.yousif.delivery"
         minSdk = 26
         targetSdk = 35
-        versionCode = 24
-        versionName = "1.6.11"
+        versionCode = 25
+        versionName = "1.6.12"
 
         // Single place to point the app at the Vercel backend.
         buildConfigField("String", "API_BASE_URL", "\"https://yousf-delivery-api.vercel.app\"")

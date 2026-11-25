@@ -302,7 +302,7 @@ fun IconLabelButton(
 /** Three one-tap pills under every customer: call / WhatsApp / Viber. */
 @Composable
 fun PhoneActionRow(
-    number: String,
+    number: String = "",
     onCall: () -> Unit,
     onWhatsApp: () -> Unit,
     onViber: () -> Unit,
@@ -335,14 +335,16 @@ fun PhoneActionRow(
             modifier = Modifier.weight(1f),
         )
     }
-    Text(
-        text = number,
-        color = LocalAppColors.current.textSecondary,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.fillMaxWidth(),
-        textAlign = TextAlign.Center,
-    )
+    if (number.isNotBlank()) {
+        Text(
+            text = number,
+            color = LocalAppColors.current.textSecondary,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center,
+        )
+    }
 }
 
 /**
