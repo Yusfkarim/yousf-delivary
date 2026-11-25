@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -134,10 +135,21 @@ fun SoftIconButton(
     Box(
         modifier = modifier
             .size(size)
-            .shadow(elevation = 4.dp, shape = shape, clip = false, ambientColor = Color(0x12A0785A), spotColor = Color(0x12A0785A))
+            .shadow(
+                elevation = 9.dp,
+                shape = shape,
+                clip = false,
+                ambientColor = if (colors.isDark) Color(0x66000000) else Color(0x338A5C33),
+                spotColor = if (colors.isDark) Color(0x66000000) else Color(0x338A5C33),
+            )
             .clip(shape)
-            .background(colors.surface)
-            .border(1.dp, colors.border, shape)
+            .background(
+                Brush.verticalGradient(
+                    if (colors.isDark) listOf(Color(0xFF3B2E26), Color(0xFF241B16))
+                    else listOf(Color(0xFFFFFFFF), Color(0xFFFFF3E8)),
+                ),
+            )
+            .border(1.dp, if (colors.isDark) Color(0xFF4A3A31) else Color.White, shape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -163,20 +175,41 @@ fun PillButton(
     fontSize: Int = 14,
 ) {
     val shape = RoundedCornerShape(50)
-    Row(
+    // Glossy 3D pill: lighter top face, deeper bottom face, coloured drop shadow
+    // and a white bevel line.
+    val face = Brush.verticalGradient(
+        listOf(
+            lerp(container, Color.White, 0.26f),
+            container,
+            lerp(container, Color.Black, 0.18f),
+        ),
+    )
+    Box(
         modifier = modifier
             .height(height)
+            .shadow(
+                10.dp,
+                shape,
+                clip = false,
+                ambientColor = container.copy(alpha = 0.50f),
+                spotColor = container.copy(alpha = 0.50f),
+            )
             .clip(shape)
-            .background(container)
+            .background(face)
+            .border(1.dp, Color.White.copy(alpha = 0.30f), shape)
             .clickable(onClick = onClick),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
+        contentAlignment = Alignment.Center,
     ) {
-        if (icon != null) {
-            Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(17.dp))
-            Spacer(Modifier.width(7.dp))
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (icon != null) {
+                Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(7.dp))
+            }
+            Text(label, color = contentColor, fontSize = fontSize.sp, fontWeight = FontWeight.Bold)
         }
-        Text(label, color = contentColor, fontSize = fontSize.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -191,8 +224,12 @@ fun StatPill(
 ) {
     Row(
         modifier = modifier
+            .shadow(7.dp, RoundedCornerShape(50), clip = false, ambientColor = soft.copy(alpha = 0.55f), spotColor = soft.copy(alpha = 0.55f))
             .clip(RoundedCornerShape(50))
-            .background(soft)
+            .background(
+                Brush.verticalGradient(listOf(lerp(soft, Color.White, 0.35f), soft)),
+            )
+            .border(1.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(50))
             .padding(horizontal = 10.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -363,9 +400,18 @@ private fun BrandPill(
     Row(
         modifier = modifier
             .height(44.dp)
-            .shadow(6.dp, shape, clip = false, ambientColor = brand.copy(alpha = 0.35f), spotColor = brand.copy(alpha = 0.35f))
+            .shadow(12.dp, shape, clip = false, ambientColor = brand.copy(alpha = 0.55f), spotColor = brand.copy(alpha = 0.55f))
             .clip(shape)
-            .background(brand)
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        lerp(brand, Color.White, 0.30f),
+                        brand,
+                        lerp(brand, Color.Black, 0.22f),
+                    ),
+                ),
+            )
+            .border(1.dp, Color.White.copy(alpha = 0.35f), shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -505,9 +551,15 @@ fun Segmented(
     val colors = LocalAppColors.current
     Row(
         modifier = modifier
+            .shadow(8.dp, RoundedCornerShape(50), clip = false, ambientColor = Color(0x228A5C33), spotColor = Color(0x228A5C33))
             .clip(RoundedCornerShape(50))
-            .background(colors.surface)
-            .border(1.dp, colors.border, RoundedCornerShape(50))
+            .background(
+                Brush.verticalGradient(
+                    if (colors.isDark) listOf(Color(0xFF3B2E26), Color(0xFF241B16))
+                    else listOf(Color(0xFFF7EDE3), Color(0xFFFFFAF5)),
+                ),
+            )
+            .border(1.dp, if (colors.isDark) Color(0xFF4A3A31) else Color.White, RoundedCornerShape(50))
             .padding(3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -517,8 +569,28 @@ fun Segmented(
                 modifier = Modifier
                     .weight(1f)
                     .height(42.dp)
+                    .shadow(
+                        if (selected) 9.dp else 0.dp,
+                        RoundedCornerShape(50),
+                        clip = false,
+                        ambientColor = colors.brand.copy(alpha = 0.45f),
+                        spotColor = colors.brand.copy(alpha = 0.45f),
+                    )
                     .clip(RoundedCornerShape(50))
-                    .background(if (selected) colors.brand else Color.Transparent)
+                    .background(
+                        if (selected) {
+                            Brush.verticalGradient(
+                                listOf(
+                                    lerp(colors.brand, Color.White, 0.24f),
+                                    colors.brand,
+                                    lerp(colors.brand, Color.Black, 0.16f),
+                                ),
+                            )
+                        } else {
+                            Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
+                        },
+                    )
+                    .border(1.dp, Color.White.copy(alpha = if (selected) 0.35f else 0f), RoundedCornerShape(50))
                     .clickable { onSelect(index) },
                 contentAlignment = Alignment.Center,
             ) {

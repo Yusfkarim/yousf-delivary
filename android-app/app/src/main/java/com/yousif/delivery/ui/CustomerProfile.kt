@@ -28,8 +28,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -404,12 +406,14 @@ private fun ActionTile(
 ) {
     val colors = LocalAppColors.current
     val shape = RoundedCornerShape(16.dp)
+    val soft = if (colors.isDark) brand.copy(alpha = 0.18f) else brand.copy(alpha = 0.09f)
     Column(
         modifier = modifier
             .height(68.dp)
+            .shadow(9.dp, shape, clip = false, ambientColor = brand.copy(alpha = 0.30f), spotColor = brand.copy(alpha = 0.30f))
             .clip(shape)
-            .background(if (colors.isDark) brand.copy(alpha = 0.16f) else brand.copy(alpha = 0.09f))
-            .border(1.dp, brand.copy(alpha = 0.22f), shape)
+            .background(Brush.verticalGradient(listOf(lerp(soft, Color.White, 0.30f), soft)))
+            .border(1.dp, Color.White.copy(alpha = 0.45f), shape)
             .clickable(onClick = onClick)
             .padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -418,8 +422,13 @@ private fun ActionTile(
         Box(
             modifier = Modifier
                 .size(25.dp)
+                .shadow(6.dp, CircleShape, clip = false, ambientColor = brand.copy(alpha = 0.6f), spotColor = brand.copy(alpha = 0.6f))
                 .clip(CircleShape)
-                .background(brand),
+                .background(
+                    Brush.verticalGradient(
+                        listOf(lerp(brand, Color.White, 0.28f), brand, lerp(brand, Color.Black, 0.12f)),
+                    ),
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
