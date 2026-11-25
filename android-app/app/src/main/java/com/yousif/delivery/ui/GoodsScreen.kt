@@ -86,6 +86,7 @@ fun GoodsScreen(
 ) {
     val colors = LocalAppColors.current
     var deleteTarget by remember { mutableStateOf<GoodItem?>(null) }
+    var groupTarget by remember { mutableStateOf<GoodGroup?>(null) }
     var openKey by remember { mutableStateOf<String?>(null) }
 
     val groups = remember(goods, people) {
@@ -113,6 +114,7 @@ fun GoodsScreen(
             groups = groups,
             totalGoods = goods.size,
             onOpen = { group -> openKey = group.key },
+            onDeleteGroup = { group -> groupTarget = group },
             onAdd = { onAddFor(null, null) },
             modifier = modifier,
         )
@@ -159,6 +161,40 @@ fun GoodsScreen(
             },
         )
     }
+
+    groupTarget?.let { group ->
+        AlertDialog(
+            onDismissRequest = { groupTarget = null },
+            containerColor = colors.surface,
+            shape = RoundedCornerShape(26.dp),
+            title = {
+                Text(
+                    text = "سڕینەوەی کاڵاکان",
+                    color = colors.textPrimary,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+            },
+            text = {
+                Text(
+                    text = "هەموو کاڵاکانی «${group.name}» بسرێتەوە؟ " +
+                        "(${TextUtils.toKurdish(group.items.size.toString())} جۆر) " +
+                        "ئەمە تەنها کاڵاکان دەسڕێتەوە — زانیاری کەسەکە لە سێرڤەر دەمێنێتەوە.",
+                    color = colors.textSecondary,
+                    fontSize = 13.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    group.items.forEach { item -> onDelete(item) }
+                    groupTarget = null
+                    openKey = null
+                }) { Text("سڕینەوە", color = colors.danger, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { groupTarget = null }) { Text("پاشگەزبوونەوە") }
+            },
+        )
+    }
 }
 
 /* ------------------------------------------------------------- menu of owners */
@@ -168,6 +204,7 @@ private fun OwnerMenu(
     groups: List<GoodGroup>,
     totalGoods: Int,
     onOpen: (GoodGroup) -> Unit,
+    onDeleteGroup: (GoodGroup) -> Unit,
     onAdd: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -226,7 +263,11 @@ private fun OwnerMenu(
 
             items(items = groups, key = { group -> group.key }) { group ->
                 Box(Modifier.animateItem()) {
-                    OwnerCard(group = group, onClick = { onOpen(group) })
+                    OwnerCard(
+                        group = group,
+                        onClick = { onOpen(group) },
+                        onDelete = { onDeleteGroup(group) },
+                    )
                 }
             }
         }
@@ -235,7 +276,7 @@ private fun OwnerMenu(
 
 /** One line of the menu: the whole name, the kind and how much he carries. */
 @Composable
-private fun OwnerCard(group: GoodGroup, onClick: () -> Unit) {
+private fun OwnerCard(group: GoodGroup, onClick: () -> Unit, onDelete: () -> Unit) {
     val colors = LocalAppColors.current
     val nobody = group.key == NOBODY_KEY
     val isShop = group.kind == Kinds.SHOP
@@ -299,6 +340,23 @@ private fun OwnerCard(group: GoodGroup, onClick: () -> Unit) {
                         fontWeight = FontWeight.Bold,
                     )
                 }
+            }
+            Spacer(Modifier.width(6.dp))
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(colors.danger.copy(alpha = if (colors.isDark) 0.18f else 0.08f))
+                    .border(1.dp, colors.danger.copy(alpha = 0.20f), RoundedCornerShape(11.dp))
+                    .clickable(onClick = onDelete),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    AppIcons.delete(),
+                    contentDescription = "سڕینەوەی کاڵاکان",
+                    tint = colors.danger,
+                    modifier = Modifier.size(17.dp),
+                )
             }
             Spacer(Modifier.width(6.dp))
             Box(

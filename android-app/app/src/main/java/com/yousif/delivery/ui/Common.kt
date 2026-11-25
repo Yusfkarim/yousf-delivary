@@ -327,8 +327,8 @@ fun PhoneActionRow(
             label = "واتسئەپ",
             onClick = onWhatsApp,
             icon = AppIcons.whatsapp(),
-            container = colors.successSoft,
-            contentColor = colors.successDeep,
+            container = WhatsAppBrand.copy(alpha = if (colors.isDark) 0.22f else 0.13f),
+            contentColor = if (colors.isDark) Color(0xFF4FE08C) else Color(0xFF11793F),
             modifier = Modifier.weight(1f),
             height = 44.dp,
             fontSize = 12,
@@ -337,8 +337,8 @@ fun PhoneActionRow(
             label = "ڤایبەر",
             onClick = onViber,
             icon = AppIcons.viber(),
-            container = colors.brandSoft,
-            contentColor = colors.brandDeep,
+            container = ViberBrand.copy(alpha = if (colors.isDark) 0.24f else 0.13f),
+            contentColor = if (colors.isDark) Color(0xFF9E8FFF) else Color(0xFF5744C9),
             modifier = Modifier.weight(1f),
             height = 44.dp,
             fontSize = 12,
@@ -498,3 +498,7 @@ fun Segmented(
         }
     }
 }
+
+/** Official brand colours — the real logos keep their own identity. */
+val WhatsAppBrand = Color(0xFF25D366)
+val ViberBrand = Color(0xFF7360F2)
