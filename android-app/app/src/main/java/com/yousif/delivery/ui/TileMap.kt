@@ -2,6 +2,7 @@ package com.yousif.delivery.ui
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -56,12 +58,15 @@ import com.yousif.delivery.ui.map.TileSources
 import com.yousif.delivery.ui.theme.AppColors
 import com.yousif.delivery.ui.theme.LocalAppColors
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.security.MessageDigest
 import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -112,6 +117,7 @@ fun TileMap(
     interactive: Boolean = true,
     showControls: Boolean = true,
     allowStyleSwitch: Boolean = false,
+    allowOfflineDownload: Boolean = false,
     initialStyle: MapStyle = MapStyle.STREET,
     onLocate: (() -> Unit)? = null,
     onTap: ((Double, Double) -> Unit)? = null,
@@ -152,6 +158,10 @@ fun TileMap(
 
     val placeholder = if (colors.isDark) Color(0xFF17120E) else Color(0xFFE4DBD1)
 
+    val scope = rememberCoroutineScope()
+    var downloading by remember { mutableStateOf(false) }
+    var downloadProgress by remember { mutableStateOf(0f) }
+
     BoxWithConstraints(modifier.background(placeholder)) {
         val widthPx = constraints.maxWidth
         val heightPx = constraints.maxHeight
@@ -173,6 +183,7 @@ fun TileMap(
                     val geometry = state.geometry(widthPx, heightPx)
                     val layers = listOf(
                         (geometry.tileZoom - 2).coerceAtLeast(2) to geometry.tileSize * 4.0,
+                        (geometry.tileZoom - 1).coerceAtLeast(2) to geometry.tileSize * 2.0,
                         geometry.tileZoom to geometry.tileSize,
                     )
                     for ((zoom, sizePx) in layers) {
@@ -295,6 +306,46 @@ fun TileMap(
                 if (onLocate != null) {
                     MapControl(AppIcons.locate(), colors.isDark, tint = colors.brand, onClick = onLocate)
                 }
+                if (allowOfflineDownload) {
+                    MapControl(
+                        icon = AppIcons.download(),
+                        dark = colors.isDark,
+                        tint = colors.brandDeep,
+                    ) {
+                        if (!downloading && widthPx > 0 && heightPx > 0) {
+                            val geometry = state.geometry(widthPx, heightPx)
+                            // A little more than the screen, so a small pan still
+                            // stays inside the saved area.
+                            val padX = widthPx * 0.25f
+                            val padY = heightPx * 0.25f
+                            val west = geometry.longitudeAt(-padX)
+                            val east = geometry.longitudeAt(widthPx + padX)
+                            val north = geometry.latitudeAt(-padY)
+                            val south = geometry.latitudeAt(heightPx + padY)
+                            downloading = true
+                            downloadProgress = 0f
+                            scope.launch {
+                                val saved = TileCache.downloadArea(
+                                    style = style,
+                                    dark = colors.isDark,
+                                    zooms = (geometry.tileZoom - 1)..(geometry.tileZoom + 2),
+                                    minLatitude = south,
+                                    minLongitude = west,
+                                    maxLatitude = north,
+                                    maxLongitude = east,
+                                    onProgress = { value -> downloadProgress = value },
+                                )
+                                downloading = false
+                                downloadProgress = 1f
+                                Toast.makeText(
+                                    context,
+                                    "ناوچەکە بۆ ئۆفلاین پاشەکەوتکرا ✓ ($saved تایڵ)",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        }
+                    }
+                }
                 if (allowStyleSwitch) {
                     MapControl(
                         icon = when (style) {
@@ -312,6 +363,33 @@ fun TileMap(
                         }
                     }
                 }
+            }
+        }
+
+        if (downloading) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(10.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(colors.surface.copy(alpha = 0.94f))
+                    .border(1.dp, colors.border, RoundedCornerShape(50))
+                    .padding(horizontal = 11.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    AppIcons.download(),
+                    contentDescription = null,
+                    tint = colors.brand,
+                    modifier = Modifier.size(14.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "داگرتنی ناوچە " + (downloadProgress * 100).roundToInt() + "٪",
+                    color = colors.textPrimary,
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Bold,
+                )
             }
         }
 
@@ -451,17 +529,58 @@ private fun DrawScope.drawTileLayer(
         if (tileY < 0 || tileY >= count) continue
         for (tileX in firstX..lastX) {
             val wrapped = ((tileX % count) + count) % count
-            val bitmap = firstCached(style, dark, zoom, wrapped, tileY) ?: continue
+            val dst = IntOffset(
+                (tileX * sizePx - geometry.leftWorld).roundToInt(),
+                (tileY * sizePx - geometry.topWorld).roundToInt(),
+            )
+            val bitmap = firstCached(style, dark, zoom, wrapped, tileY)
+            if (bitmap != null) {
+                drawImage(image = bitmap, dstOffset = dst, dstSize = IntSize(drawSize, drawSize))
+                continue
+            }
+            // Nothing at this zoom yet: paint the matching piece of an already
+            // cached parent tile instead of leaving a blank square on the map.
+            val ancestor = ancestorTile(style, dark, zoom, wrapped, tileY) ?: continue
+            val divisions = 1 shl ancestor.level
+            val sourceSize = ancestor.image.width / divisions
+            if (sourceSize <= 0) continue
             drawImage(
-                image = bitmap,
-                dstOffset = IntOffset(
-                    (tileX * sizePx - geometry.leftWorld).roundToInt(),
-                    (tileY * sizePx - geometry.topWorld).roundToInt(),
+                image = ancestor.image,
+                srcOffset = IntOffset(
+                    (wrapped % divisions) * sourceSize,
+                    (tileY % divisions) * sourceSize,
                 ),
+                srcSize = IntSize(sourceSize, sourceSize),
+                dstOffset = dst,
                 dstSize = IntSize(drawSize, drawSize),
             )
         }
     }
+}
+
+/** A cached parent tile plus how many zoom levels above the missing one it sits. */
+private class AncestorTile(val image: ImageBitmap, val level: Int)
+
+/**
+ * Walks up to four zoom levels looking for any cached tile that covers the
+ * missing one. Cheap (a few map lookups) and it runs only for a hole.
+ */
+private fun ancestorTile(
+    style: MapStyle,
+    dark: Boolean,
+    zoom: Int,
+    x: Int,
+    y: Int,
+): AncestorTile? {
+    for (level in 1..4) {
+        val parentZoom = zoom - level
+        if (parentZoom < 2) return null
+        val parentX = x shr level
+        val parentY = y shr level
+        val image = firstCached(style, dark, parentZoom, parentX, parentY) ?: continue
+        return AncestorTile(image, level)
+    }
+    return null
 }
 
 /** The first provider that already has this tile in memory. */
@@ -651,15 +770,32 @@ private fun MapControl(
  * `stamp` is a Compose state: every finished download bumps it, and the Canvas
  * reads it to repaint — no bitmap map, no recomposition of the whole map.
  */
+/**
+ * Tiles in three layers: memory, **persistent disk** and the network.
+ *
+ * The disk store lives in `filesDir/tiles` (not `cacheDir`, which Android may
+ * clear) and keeps up to 400 MB, so an area the driver has already seen stays
+ * available with no internet at all — and panning or zooming shows imagery
+ * immediately instead of a blank cream rectangle.
+ */
 private object TileCache {
+
+    private const val MEMORY_LIMIT = 220
+    private const val DISK_LIMIT_BYTES = 400L * 1024 * 1024
+    private const val DISK_PRUNE_FACTOR = 0.85
 
     private val store = object : LinkedHashMap<String, ImageBitmap>(32, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ImageBitmap>): Boolean =
-            size > 96
+            size > MEMORY_LIMIT
     }
 
     private val inFlight = HashSet<String>()
     private val failures = HashMap<String, Long>()
+
+    @Volatile
+    private var dir: File? = null
+
+    private var writes = 0
 
     var stamp by mutableStateOf(0)
         private set
@@ -671,15 +807,77 @@ private object TileCache {
         if (client != null) return
         synchronized(this) {
             if (client != null) return
-            val cacheDir = File(context.cacheDir, "tile-cache")
-            runCatching { cacheDir.mkdirs() }
+            // The HTTP cache is only a fast path; the tile store below is what
+            // makes the map work offline.
+            val httpCache = File(context.cacheDir, "tile-http")
+            runCatching { httpCache.mkdirs() }
             client = OkHttpClient.Builder()
                 .connectTimeout(8, TimeUnit.SECONDS)
                 .readTimeout(10, TimeUnit.SECONDS)
-                .cache(Cache(cacheDir, 32L * 1024 * 1024))
+                .cache(Cache(httpCache, 48L * 1024 * 1024))
                 .build()
+            val tiles = File(context.filesDir, "tiles")
+            runCatching { tiles.mkdirs() }
+            dir = tiles
         }
     }
+
+    /* ----------------------------------------------------------- disk store */
+
+    private fun fileFor(url: String): File? {
+        val root = dir ?: return null
+        val digest = MessageDigest.getInstance("SHA-1").digest(url.toByteArray())
+        val name = digest.joinToString("") { byte -> "%02x".format(byte) } + ".tile"
+        return File(root, name)
+    }
+
+    private fun readFromDisk(url: String): ImageBitmap? {
+        val file = fileFor(url) ?: return null
+        if (!file.exists()) return null
+        return try {
+            if (file.length() < 64L) {
+                runCatching { file.delete() }
+                return null
+            }
+            val bytes = file.readBytes()
+            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+            val image = bitmap.asImageBitmap()
+            synchronized(store) { store[url] = image }
+            image
+        } catch (error: Exception) {
+            runCatching { file.delete() }
+            null
+        }
+    }
+
+    private fun writeToDisk(url: String, bytes: ByteArray) {
+        val file = fileFor(url) ?: return
+        try {
+            file.writeBytes(bytes)
+            file.setLastModified(System.currentTimeMillis())
+            writes += 1
+            if (writes % 40 == 0) prune()
+        } catch (error: Exception) {
+            // A full disk must never break the map — the tile is still in memory.
+        }
+    }
+
+    /** Drops the oldest tiles once the store passes its budget. */
+    private fun prune() {
+        val root = dir ?: return
+        val files = root.listFiles() ?: return
+        var total = 0L
+        files.forEach { file -> total += file.length() }
+        if (total <= DISK_LIMIT_BYTES) return
+        val target = (DISK_LIMIT_BYTES * DISK_PRUNE_FACTOR).toLong()
+        files.sortedBy { file -> file.lastModified() }.forEach { file ->
+            if (total <= target) return@forEach
+            val length = file.length()
+            if (runCatching { file.delete() }.getOrDefault(false)) total -= length
+        }
+    }
+
+    /* -------------------------------------------------------------- reading */
 
     fun cached(url: String): ImageBitmap? = synchronized(store) { store[url] }
 
@@ -705,6 +903,7 @@ private object TileCache {
 
     fun load(url: String): ImageBitmap? {
         cached(url)?.let { return it }
+        readFromDisk(url)?.let { return it }
         val http = client ?: return null
         val request = Request.Builder()
             .url(url)
@@ -723,6 +922,7 @@ private object TileCache {
                     store[url] = image
                     failures.remove(url)
                 }
+                writeToDisk(url, bytes)
                 stamp += 1
                 image
             }
@@ -730,6 +930,56 @@ private object TileCache {
             synchronized(store) { failures[url] = System.currentTimeMillis() }
             null
         }
+    }
+
+    /* ------------------------------------------------------- offline download */
+
+    /**
+     * Downloads every tile of a geographic box for the given zooms and keeps it
+     * on disk, so the area works with no internet afterwards.
+     * Returns the number of tiles that are now stored.
+     */
+    suspend fun downloadArea(
+        style: MapStyle,
+        dark: Boolean,
+        zooms: IntRange,
+        minLatitude: Double,
+        minLongitude: Double,
+        maxLatitude: Double,
+        maxLongitude: Double,
+        onProgress: (Float) -> Unit,
+    ): Int = withContext(Dispatchers.IO) {
+        val urls = LinkedHashSet<String>()
+        for (zoom in zooms) {
+            val count = 1 shl zoom
+            val x0 = Math.floor((minLongitude + 180.0) / 360.0 * count).toInt().coerceIn(0, count - 1)
+            val x1 = Math.floor((maxLongitude + 180.0) / 360.0 * count).toInt().coerceIn(0, count - 1)
+            val y0 = Math.floor(normalisedY(maxLatitude) * count).toInt().coerceIn(0, count - 1)
+            val y1 = Math.floor(normalisedY(minLatitude) * count).toInt().coerceIn(0, count - 1)
+            for (y in y0..y1) {
+                for (x in x0..x1) {
+                    val wrapped = ((x % count) + count) % count
+                    urls += TileSources.urlsFor(style, dark, zoom, wrapped, y).first()
+                }
+            }
+        }
+        val total = urls.size
+        if (total == 0) return@withContext 0
+        var done = 0
+        urls.chunked(6).forEach { chunk ->
+            coroutineScope {
+                chunk.forEach { url ->
+                    launch {
+                        if (cached(url) == null) load(url)
+                        synchronized(store) {
+                            done += 1
+                            onProgress(done.toFloat() / total)
+                        }
+                    }
+                }
+            }
+        }
+        total
     }
 }
 

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -82,7 +83,8 @@ private fun ServerNotice(
         else -> "داتای سێرڤەر هێشتا نەهاتووە ($code)"
     }
     val hint = if (code == 404) {
-        "داتاکانت لەسەر سێرڤەر سەلامەتن — تەنها ناونیشانەکە ڕێک بخە."
+        "داتاکانت لەسەر سێرڤەر سەلامەتن. هەموو ڕێگاکان تاقیکرانەوە — ئەگەر VPN چالاکە " +
+            "بیکوژێنەرەوە یان بگۆڕە، پاشان «هەوڵدانەوە» دابگرە."
     } else {
         "داتاکانت لەسەر سێرڤەر سەلامەتن — دوگمە بدە بۆ هەوڵدانەوە."
     }
@@ -330,6 +332,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                                 }
                             }
                             items(items = activeVisible, key = { it.id }) { customer ->
+                                Box(Modifier.animateItem()) {
                                 CustomerCard(
                                     customer = customer,
                                     distanceMeters = viewModel.distanceTo(customer),
@@ -342,6 +345,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                                     },
                                     onDelete = { deleteTarget = customer },
                                 )
+                                }
                             }
                         }
                     }
@@ -546,10 +550,16 @@ private fun HomeHeader(
         modifier = Modifier
             .fillMaxWidth()
             .background(colors.background)
-            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 6.dp),
+            .statusBarsPadding()
+            .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            SoftIconButton(icon = AppIcons.bell(), onClick = onBell, contentDescription = "ڕێکخستن")
+            SoftIconButton(
+                icon = AppIcons.bell(),
+                onClick = onBell,
+                contentDescription = "ڕێکخستن",
+                tint = colors.brandDeep,
+            )
             Spacer(Modifier.weight(1f))
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 BrandBadge(size = 36.dp)

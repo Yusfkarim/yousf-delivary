@@ -171,6 +171,10 @@ class ApiClient {
         add(saved)
         add(bareHost(saved))
         add(BuildConfig.API_BASE_URL)
+        // Same API, three different network paths. Some mobile networks answer
+        // the Vercel hosts with a 404 while the Supabase host always loads.
+        add(RELAY_BASE_URL)
+        add(VERCEL_AUTO_ALIAS)
         return list
     }
 
@@ -264,6 +268,18 @@ class ApiClient {
     }
 
     companion object {
+        /**
+         * The same API served through a Supabase Edge Function. It forwards the
+         * request server-side, so a network that blocks the Vercel hosts can
+         * still reach the data.
+         */
+        const val RELAY_BASE_URL =
+            "https://qzxujaipoeozfwgacnlg.supabase.co/functions/v1/delivery-api"
+
+        /** Vercel's own alias for the same production deployment. */
+        const val VERCEL_AUTO_ALIAS =
+            "https://yousif-delivery-api-yusfkarim2001-1023s-projects.vercel.app"
+
         /** The request never reached the server (no network / DNS / TLS). */
         const val CODE_OFFLINE = 0
 
