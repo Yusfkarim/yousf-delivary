@@ -225,7 +225,9 @@ private fun OwnerMenu(
             }
 
             items(items = groups, key = { group -> group.key }) { group ->
-                OwnerCard(group = group, onClick = { onOpen(group) })
+                Box(Modifier.animateItem()) {
+                    OwnerCard(group = group, onClick = { onOpen(group) })
+                }
             }
         }
     }

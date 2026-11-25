@@ -67,6 +67,7 @@ fun MapScreen(
     Box(modifier.fillMaxSize()) {
         TileMap(
             modifier = Modifier.fillMaxSize(),
+            allowOfflineDownload = true,
             center = if (pinned.size == 1) {
                 pinned.first().let { MapPoint(it.latitude, it.longitude) }
             } else {
