@@ -106,6 +106,13 @@ fun GoodsScreen(
     var openKey by remember { mutableStateOf<String?>(null) }
     /** A cell that was just created and has no good in it yet. */
     var freshKey by remember { mutableStateOf<String?>(null) }
+    /** The person chosen for that brand-new cell, before the first good is written. */
+    var freshOwner by remember { mutableStateOf<Customer?>(null) }
+    /** Number/name typed in a still-empty cell — used the moment a good is added. */
+    var freshPhone by remember { mutableStateOf("") }
+    var freshName by remember { mutableStateOf("") }
+    /** Keeps the page on screen while Room catches up with a fresh assignment. */
+    var heldGroup by remember { mutableStateOf<GoodGroup?>(null) }
 
     /* The bottom «+» of the goods tab also just opens a new cell — importing a
        person and goods is never forced through a separate page. */
@@ -113,6 +120,10 @@ fun GoodsScreen(
         if (newCellSignal > 0) {
             val key = UUID.randomUUID().toString()
             freshKey = key
+            freshOwner = null
+            freshPhone = ""
+            freshName = ""
+            heldGroup = null
             openKey = key
         }
     }
@@ -137,17 +148,21 @@ fun GoodsScreen(
             }
     }
 
-    val open = groups.firstOrNull { group -> group.key == openKey }
-        ?: openKey?.takeIf { key -> key == freshKey }
-            ?.let { key ->
-                GoodGroup(
-                    key = key,
-                    customerId = null,
-                    name = "بێ کەس",
-                    kind = null,
-                    items = emptyList(),
-                )
-            }
+    val liveGroup = groups.firstOrNull { group -> group.key == openKey }
+    val freshGroup = openKey?.takeIf { key -> key == freshKey }
+        ?.let { key ->
+            GoodGroup(
+                key = key,
+                customerId = freshOwner?.id,
+                name = freshOwner?.name ?: "بێ کەس",
+                kind = freshOwner?.kind,
+                items = emptyList(),
+            )
+        }
+    /* A page must never be pulled from under the driver while he is picking the
+       person: the cell that was just assigned stays on screen until the very
+       same goods come back from the database. */
+    val open = liveGroup ?: freshGroup ?: heldGroup?.takeIf { it.key == openKey }
 
     if (open == null) {
         OwnerMenu(
@@ -159,6 +174,10 @@ fun GoodsScreen(
                 /* A new cell, never a merge into the «بێ کەس» of before. */
                 val key = UUID.randomUUID().toString()
                 freshKey = key
+                freshOwner = null
+                freshPhone = ""
+                freshName = ""
+                heldGroup = null
                 openKey = key
             },
             modifier = modifier,
@@ -169,25 +188,101 @@ fun GoodsScreen(
             onBack = {
                 if (open.key == freshKey) freshKey = null
                 openKey = null
+                freshOwner = null
+                freshPhone = ""
+                freshName = ""
+                heldGroup = null
             },
             people = people,
             onBump = onBump,
             onRename = onRename,
             onNoteChange = onNoteChange,
             onAssignOwner = { items, phone, name, currentId ->
-                /* When the number already belongs to a saved person we stay on
-                   his page (the cell keeps its goods); otherwise the list shows
-                   the new person with his goods. */
-                val target = matchedPerson(phone, people)
-                onAssignOwner(items, phone, name, currentId)
-                if (target != null) openKey = target.id
+                /* Nothing to move yet (a brand-new cell): remember the number and
+                   keep the page open — it is used with the first good written. */
+                if (items.isEmpty() && open.key == freshKey) {
+                    val target = matchedPerson(phone, people)
+                    freshOwner = target
+                    freshPhone = if (target == null) phone else ""
+                    freshName = if (target == null) name else ""
+                } else {
+                    val target = matchedPerson(phone, people)
+                    onAssignOwner(items, phone, name, currentId)
+                    heldGroup = GoodGroup(
+                        key = target?.id ?: open.key,
+                        customerId = target?.id,
+                        name = target?.name ?: name.ifBlank { open.name },
+                        kind = target?.kind,
+                        items = items,
+                    )
+                    if (target != null) {
+                        openKey = target.id
+                        freshKey = null
+                        freshOwner = null
+                        freshPhone = ""
+                        freshName = ""
+                    }
+                }
             },
             onPickPerson = { items, candidate ->
-                onPickPerson(items, candidate)
-                openKey = candidate.id
+                if (items.isEmpty() && open.key == freshKey) {
+                    /* Only a person is chosen — the goods come next. */
+                    freshOwner = candidate
+                    freshPhone = ""
+                    freshName = ""
+                } else {
+                    onPickPerson(items, candidate)
+                    heldGroup = GoodGroup(
+                        key = candidate.id,
+                        customerId = candidate.id,
+                        name = candidate.name,
+                        kind = candidate.kind,
+                        items = items,
+                    )
+                    openKey = candidate.id
+                    freshKey = null
+                    freshOwner = null
+                    freshPhone = ""
+                    freshName = ""
+                }
             },
-            onDelete = { item -> deleteTarget = item },
-            onAddGood = onAddGood,
+            onDelete = { item ->
+                if (open.items.size <= 1) heldGroup = null
+                deleteTarget = item
+            },
+            onAddGood = { item ->
+                onAddGood(item)
+                val chosen = freshOwner
+                val pending = freshPhone
+                if (open.key == freshKey) {
+                    when {
+                        chosen != null -> {
+                            heldGroup = GoodGroup(
+                                key = chosen.id,
+                                customerId = chosen.id,
+                                name = chosen.name,
+                                kind = chosen.kind,
+                                items = listOf(item),
+                            )
+                            openKey = chosen.id
+                            freshKey = null
+                            freshOwner = null
+                        }
+                        pending.filter(Char::isDigit).length >= 7 -> {
+                            heldGroup = GoodGroup(
+                                key = open.key,
+                                customerId = null,
+                                name = freshName.ifBlank { "کڕیاری نوێ" },
+                                kind = null,
+                                items = listOf(item),
+                            )
+                            onAssignOwner(listOf(item), pending, freshName, null)
+                            freshPhone = ""
+                            freshName = ""
+                        }
+                    }
+                }
+            },
             modifier = modifier,
         )
     }
@@ -249,6 +344,9 @@ fun GoodsScreen(
                     group.items.forEach { item -> onDelete(item) }
                     groupTarget = null
                     openKey = null
+                    heldGroup = null
+                    freshKey = null
+                    freshOwner = null
                 }) { Text("سڕینەوە", color = colors.danger, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
