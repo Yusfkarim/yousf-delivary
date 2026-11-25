@@ -313,46 +313,78 @@ fun PhoneActionRow(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        PillButton(
+        BrandPill(
             label = "پەیوەندی",
             onClick = onCall,
             icon = AppIcons.call(),
-            container = colors.success,
-            contentColor = Color.White,
+            brand = colors.success,
             modifier = Modifier.weight(1f),
-            height = 44.dp,
-            fontSize = 12,
         )
-        PillButton(
+        BrandPill(
             label = "واتسئەپ",
             onClick = onWhatsApp,
             icon = AppIcons.whatsapp(),
-            container = WhatsAppBrand.copy(alpha = if (colors.isDark) 0.22f else 0.13f),
-            contentColor = if (colors.isDark) Color(0xFF4FE08C) else Color(0xFF11793F),
+            brand = WhatsAppBrand,
             modifier = Modifier.weight(1f),
-            height = 44.dp,
-            fontSize = 12,
         )
-        PillButton(
+        BrandPill(
             label = "ڤایبەر",
             onClick = onViber,
             icon = AppIcons.viber(),
-            container = ViberBrand.copy(alpha = if (colors.isDark) 0.24f else 0.13f),
-            contentColor = if (colors.isDark) Color(0xFF9E8FFF) else Color(0xFF5744C9),
+            brand = ViberBrand,
             modifier = Modifier.weight(1f),
-            height = 44.dp,
-            fontSize = 12,
         )
     }
     Text(
         text = number,
         color = LocalAppColors.current.textSecondary,
         fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.fillMaxWidth(),
         textAlign = TextAlign.Center,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 6.dp),
     )
+}
+
+/**
+ * A solid brand pill: white mark on the real brand colour. The WhatsApp and
+ * Viber logos are the official paths, so they read at a glance.
+ */
+@Composable
+private fun BrandPill(
+    label: String,
+    onClick: () -> Unit,
+    icon: ImageVector,
+    brand: Color,
+    modifier: Modifier = Modifier,
+) {
+    val shape = RoundedCornerShape(50)
+    Row(
+        modifier = modifier
+            .height(44.dp)
+            .shadow(6.dp, shape, clip = false, ambientColor = brand.copy(alpha = 0.35f), spotColor = brand.copy(alpha = 0.35f))
+            .clip(shape)
+            .background(brand)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            icon,
+            contentDescription = label,
+            tint = Color.White,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(Modifier.width(5.dp))
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.ExtraBold,
+            maxLines = 1,
+            softWrap = false,
+        )
+    }
 }
 
 /** Friendly empty state with a hand-drawn style list card (no bitmap assets). */
