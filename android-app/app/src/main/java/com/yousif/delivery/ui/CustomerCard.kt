@@ -77,7 +77,7 @@ fun CustomerCard(
                         text = TextUtils.initials(customer.name),
                         color = colors.brandDeep,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp,
+                        fontSize = 17.5.sp,
                     )
                 }
             }
@@ -89,7 +89,7 @@ fun CustomerCard(
                     text = customer.name,
                     color = colors.textPrimary,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.5.sp,
+                    fontSize = 17.0.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -98,7 +98,7 @@ fun CustomerCard(
                     Text(
                         text = PhoneUtils.pretty(customer.primaryPhone),
                         color = colors.textSecondary,
-                        fontSize = 12.5.sp,
+                        fontSize = 13.5.sp,
                     )
                     Spacer(Modifier.width(6.dp))
                     StatPill(
@@ -142,14 +142,14 @@ fun CustomerCard(
                     Text(
                         text = customer.addressNote.ifBlank { "بێ ناونیشان" },
                         color = colors.textPrimary,
-                        fontSize = 12.sp,
+                        fontSize = 13.0.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = TextUtils.coordinatesDisplay(customer.latitude, customer.longitude),
                         color = colors.textMuted,
-                        fontSize = 10.sp,
+                        fontSize = 11.5.sp,
                     )
                 }
                 Row(
@@ -166,7 +166,7 @@ fun CustomerCard(
                         modifier = Modifier.size(12.dp),
                     )
                     Spacer(Modifier.width(4.dp))
-                    Text("ڕێگا", color = colors.onBrand, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("ڕێگا", color = colors.onBrand, fontSize = 12.0.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -191,7 +191,7 @@ fun CustomerCard(
                         Text(
                             text = "${TextUtils.toKurdish(extras.size.toString())}+ ژمارە",
                             color = colors.brandDeep,
-                            fontSize = 10.sp,
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold,
                         )
                         Spacer(Modifier.width(3.dp))

@@ -99,13 +99,13 @@ fun CustomerProfile(
                 Text(
                     text = "پرۆفایل",
                     color = colors.textPrimary,
-                    fontSize = 15.sp,
+                    fontSize = 15.5.sp,
                     fontWeight = FontWeight.ExtraBold,
                 )
                 Text(
                     text = if (customer.isShop) "فرۆشگا" else "کڕیار",
                     color = colors.textMuted,
-                    fontSize = 11.sp,
+                    fontSize = 12.0.sp,
                 )
             }
             SoftIconButton(
@@ -146,7 +146,7 @@ fun CustomerProfile(
                                 Text(
                                     text = TextUtils.initials(customer.name),
                                     color = colors.brandDeep,
-                                    fontSize = 19.sp,
+                                    fontSize = 19.5.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                 )
                             }
@@ -156,7 +156,7 @@ fun CustomerProfile(
                             Text(
                                 text = customer.name,
                                 color = colors.textPrimary,
-                                fontSize = 18.sp,
+                                fontSize = 18.5.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 maxLines = 3,
                                 overflow = TextOverflow.Ellipsis,
@@ -227,14 +227,14 @@ fun CustomerProfile(
                         Text(
                             text = TextUtils.coordinatesDisplay(customer.latitude, customer.longitude),
                             color = colors.textSecondary,
-                            fontSize = 11.5.sp,
+                            fontSize = 12.5.sp,
                         )
                     } else {
                         Spacer(Modifier.height(6.dp))
                         Text(
                             text = "شوێن دیاری نەکراوە",
                             color = colors.textMuted,
-                            fontSize = 12.sp,
+                            fontSize = 13.0.sp,
                         )
                     }
                     if (customer.addressNote.isNotBlank()) {
@@ -242,7 +242,7 @@ fun CustomerProfile(
                         Text(
                             text = customer.addressNote,
                             color = colors.textPrimary,
-                            fontSize = 13.sp,
+                            fontSize = 14.0.sp,
                         )
                     }
                     Spacer(Modifier.height(10.dp))
@@ -293,7 +293,7 @@ fun CustomerProfile(
                                     Text(
                                         text = TextUtils.toKurdish((index + 1).toString()),
                                         color = colors.onBrand,
-                                        fontSize = 11.sp,
+                                        fontSize = 12.0.sp,
                                         fontWeight = FontWeight.ExtraBold,
                                     )
                                 }
@@ -302,7 +302,7 @@ fun CustomerProfile(
                                     Text(
                                         text = item.title,
                                         color = colors.textPrimary,
-                                        fontSize = 13.5.sp,
+                                        fontSize = 14.5.sp,
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 2,
                                     )
@@ -310,7 +310,7 @@ fun CustomerProfile(
                                 Text(
                                     text = "×" + TextUtils.toKurdish(item.total.toString()),
                                     color = colors.brandDeep,
-                                    fontSize = 16.sp,
+                                    fontSize = 16.5.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                 )
                             }
@@ -348,7 +348,7 @@ private fun PhoneBlock(number: String, whatsapp: Boolean, viber: Boolean) {
         Text(
             text = PhoneUtils.pretty(number),
             color = colors.textPrimary,
-            fontSize = 15.sp,
+            fontSize = 15.5.sp,
             fontWeight = FontWeight.ExtraBold,
         )
         Spacer(Modifier.height(8.dp))
@@ -433,7 +433,7 @@ private fun ActionTile(
         Text(
             text = label,
             color = colors.textPrimary,
-            fontSize = 10.sp,
+            fontSize = 11.5.sp,
             lineHeight = 12.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
@@ -476,7 +476,7 @@ private fun SectionLabel(text: String, icon: ImageVector) {
         Text(
             text = text,
             color = colors.textPrimary,
-            fontSize = 14.5.sp,
+            fontSize = 15.0.sp,
             fontWeight = FontWeight.ExtraBold,
             maxLines = 1,
         )

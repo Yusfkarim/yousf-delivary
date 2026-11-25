@@ -310,7 +310,7 @@ fun GoodsScreen(
                 Text(
                     "دڵنیایی لە سڕینەوەی «${target.title}»؟",
                     color = colors.textSecondary,
-                    fontSize = 13.sp,
+                    fontSize = 14.0.sp,
                 )
             },
             confirmButton = {
@@ -343,7 +343,7 @@ fun GoodsScreen(
                         "(${TextUtils.toKurdish(group.items.size.toString())} جۆر) " +
                         "ئەمە تەنها کاڵاکان دەسڕێتەوە — زانیاری کەسەکە لە سێرڤەر دەمێنێتەوە.",
                     color = colors.textSecondary,
-                    fontSize = 13.sp,
+                    fontSize = 14.0.sp,
                 )
             },
             confirmButton = {
@@ -386,14 +386,14 @@ private fun OwnerMenu(
                 Text(
                     text = "کاڵای کڕیار",
                     color = colors.textPrimary,
-                    fontSize = 21.sp,
+                    fontSize = 21.5.sp,
                     fontWeight = FontWeight.ExtraBold,
                 )
                 Spacer(Modifier.height(3.dp))
                 Text(
                     text = "بۆ بینینی کاڵاکانی هەر کەسێک، ناوەکەی بکەرەوە",
                     color = colors.textSecondary,
-                    fontSize = 12.sp,
+                    fontSize = 13.0.sp,
                 )
             }
             GlassChip(
@@ -406,7 +406,7 @@ private fun OwnerMenu(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 132.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 146.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item {
@@ -474,7 +474,7 @@ private fun OwnerCard(group: GoodGroup, onClick: () -> Unit, onDelete: () -> Uni
                     Text(
                         text = TextUtils.initials(group.name),
                         color = colors.brandDeep,
-                        fontSize = 17.sp,
+                        fontSize = 17.5.sp,
                         fontWeight = FontWeight.ExtraBold,
                     )
                 }
@@ -484,7 +484,7 @@ private fun OwnerCard(group: GoodGroup, onClick: () -> Unit, onDelete: () -> Uni
                 Text(
                     text = group.name,
                     color = colors.textPrimary,
-                    fontSize = 16.5.sp,
+                    fontSize = 17.0.sp,
                     fontWeight = FontWeight.ExtraBold,
                     maxLines = 2,
                 )
@@ -503,7 +503,7 @@ private fun OwnerCard(group: GoodGroup, onClick: () -> Unit, onDelete: () -> Uni
                         text = "${TextUtils.toKurdish(group.items.size.toString())} جۆر · " +
                             "${TextUtils.toKurdish(pieces.toString())} دانە",
                         color = colors.textPrimary,
-                        fontSize = 13.sp,
+                        fontSize = 14.0.sp,
                         fontWeight = FontWeight.ExtraBold,
                     )
                 }
@@ -628,7 +628,7 @@ private fun OwnerDetail(
                 Text(
                     text = group.name,
                     color = colors.textPrimary,
-                    fontSize = 19.sp,
+                    fontSize = 19.5.sp,
                     fontWeight = FontWeight.ExtraBold,
                     maxLines = 2,
                 )
@@ -636,7 +636,7 @@ private fun OwnerDetail(
                 Text(
                     text = TextUtils.toKurdish(group.items.size.toString()) + " جۆری کاڵا",
                     color = colors.textSecondary,
-                    fontSize = 13.sp,
+                    fontSize = 14.0.sp,
                     fontWeight = FontWeight.Bold,
                 )
             }
@@ -654,7 +654,7 @@ private fun OwnerDetail(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 132.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 146.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item {
@@ -821,7 +821,7 @@ private fun OwnerBar(
                     Text(
                         text = TextUtils.initials(person.name),
                         color = colors.brandDeep,
-                        fontSize = 14.sp,
+                        fontSize = 14.5.sp,
                         fontWeight = FontWeight.ExtraBold,
                     )
                 }
@@ -831,14 +831,14 @@ private fun OwnerBar(
                 Text(
                     text = "کەس",
                     color = colors.textMuted,
-                    fontSize = 11.sp,
+                    fontSize = 12.0.sp,
                     fontWeight = FontWeight.Bold,
                 )
                 Spacer(Modifier.height(1.dp))
                 Text(
                     text = found?.name ?: person?.name ?: "بێ کەس",
                     color = colors.textPrimary,
-                    fontSize = 14.5.sp,
+                    fontSize = 15.0.sp,
                     fontWeight = FontWeight.ExtraBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -913,7 +913,7 @@ private fun OwnerBar(
                 else -> "ژمارە بنووسە و ✓ دابگرە — کەسەکە دەدۆزرێتەوە یان دروست دەبێت"
             },
             color = colors.textSecondary,
-            fontSize = 11.sp,
+            fontSize = 12.0.sp,
         )
 
         /* The people themselves — a tappable list with its own search, so a
@@ -933,7 +933,7 @@ private fun OwnerBar(
             Text(
                 text = "هیچ کەسێک نەدۆزرایەوە — ژمارە بنووسە بۆ دروستکردنی",
                 color = colors.textMuted,
-                fontSize = 11.5.sp,
+                fontSize = 12.5.sp,
             )
         } else {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -995,7 +995,7 @@ private fun GoodLine(
             Text(
                 text = TextUtils.toKurdish((index + 1).toString()),
                 color = colors.onBrand,
-                fontSize = 15.sp,
+                fontSize = 15.5.sp,
                 fontWeight = FontWeight.ExtraBold,
             )
         }
@@ -1017,7 +1017,7 @@ private fun GoodLine(
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                     textStyle = TextStyle(
-                        fontSize = 14.sp,
+                        fontSize = 14.5.sp,
                         color = colors.textPrimary,
                         fontWeight = FontWeight.Bold,
                     ),
@@ -1030,7 +1030,7 @@ private fun GoodLine(
                                 Text(
                                     text = "ناوی کاڵا بنووسە…",
                                     color = colors.textMuted,
-                                    fontSize = 12.5.sp,
+                                    fontSize = 13.5.sp,
                                 )
                             }
                             inner()
@@ -1077,7 +1077,7 @@ private fun GoodLine(
             Text(
                 text = item.title,
                 color = colors.textPrimary,
-                fontSize = 14.5.sp,
+                fontSize = 15.0.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -1116,7 +1116,7 @@ private fun GoodLine(
                     Text(
                         text = TextUtils.toKurdish(item.total.toString()),
                         color = colors.textPrimary,
-                        fontSize = 17.sp,
+                        fontSize = 17.5.sp,
                         fontWeight = FontWeight.ExtraBold,
                     )
                 }
@@ -1170,7 +1170,7 @@ private fun NewGoodLine(
                 Text(
                     text = TextUtils.toKurdish((index + 1).toString()),
                     color = colors.onBrand,
-                    fontSize = 15.sp,
+                    fontSize = 15.5.sp,
                     fontWeight = FontWeight.ExtraBold,
                 )
             }
@@ -1191,7 +1191,7 @@ private fun NewGoodLine(
                         .onFocusChanged { state -> if (state.isFocused) onRequestVisible() },
                     singleLine = true,
                     textStyle = TextStyle(
-                        fontSize = 14.sp,
+                        fontSize = 14.5.sp,
                         color = colors.textPrimary,
                         fontWeight = FontWeight.Bold,
                     ),
@@ -1204,7 +1204,7 @@ private fun NewGoodLine(
                                 Text(
                                     text = "ناوی کاڵا بنووسە…",
                                     color = colors.textMuted,
-                                    fontSize = 12.5.sp,
+                                    fontSize = 13.5.sp,
                                 )
                             }
                             inner()
@@ -1230,7 +1230,7 @@ private fun NewGoodLine(
                     Text(
                         text = TextUtils.toKurdish(quantity.toString()),
                         color = colors.textPrimary,
-                        fontSize = 17.sp,
+                        fontSize = 17.5.sp,
                         fontWeight = FontWeight.ExtraBold,
                     )
                 }
@@ -1270,7 +1270,7 @@ private fun NewGoodLine(
                 Text(
                     text = "زیادکردن",
                     color = colors.onBrand,
-                    fontSize = 12.5.sp,
+                    fontSize = 13.5.sp,
                     fontWeight = FontWeight.ExtraBold,
                 )
             }
@@ -1329,7 +1329,7 @@ private fun NoteCard(text: String, onSave: (String) -> Unit) {
                     onValueChange = { draft = it },
                     modifier = Modifier.weight(1f),
                     textStyle = TextStyle(
-                        fontSize = 12.5.sp,
+                        fontSize = 13.5.sp,
                         color = colors.textPrimary,
                         fontWeight = FontWeight.SemiBold,
                     ),
@@ -1343,7 +1343,7 @@ private fun NoteCard(text: String, onSave: (String) -> Unit) {
                                 Text(
                                     text = "تێبینی بنووسە…",
                                     color = colors.textMuted,
-                                    fontSize = 12.sp,
+                                    fontSize = 13.0.sp,
                                 )
                             }
                             inner()
@@ -1371,14 +1371,14 @@ private fun NoteCard(text: String, onSave: (String) -> Unit) {
                     Text(
                         text = "تێبینی",
                         color = colors.brandDeep,
-                        fontSize = 12.sp,
+                        fontSize = 13.0.sp,
                         fontWeight = FontWeight.ExtraBold,
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
                         text = text.ifBlank { "دەستبدە بۆ نووسینی تێبینی…" },
                         color = if (text.isBlank()) colors.textMuted else colors.textSecondary,
-                        fontSize = 12.sp,
+                        fontSize = 13.0.sp,
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -1554,14 +1554,14 @@ fun GoodSheet(
                     Text(
                         text = if (initial == null) "داواکاریی نوێ" else "دەستکاری کاڵا",
                         color = colors.textPrimary,
-                        fontSize = 21.sp,
+                        fontSize = 21.5.sp,
                         fontWeight = FontWeight.ExtraBold,
                     )
                     Spacer(Modifier.height(3.dp))
                     Text(
                         text = "کڕیار هەڵبژێرە و کاڵاکان خێرا بنووسە",
                         color = colors.textSecondary,
-                        fontSize = 12.sp,
+                        fontSize = 13.0.sp,
                     )
                 }
                 Box(
@@ -1592,7 +1592,7 @@ fun GoodSheet(
             Text(
                 text = "کەس",
                 color = colors.textPrimary,
-                fontSize = 16.sp,
+                fontSize = 16.5.sp,
                 fontWeight = FontWeight.ExtraBold,
             )
             Spacer(Modifier.height(8.dp))
@@ -1651,7 +1651,7 @@ fun GoodSheet(
                     Text(
                         text = text,
                         color = colors.brandDeep,
-                        fontSize = 11.5.sp,
+                        fontSize = 12.5.sp,
                         fontWeight = FontWeight.Bold,
                     )
                 }
@@ -1716,7 +1716,7 @@ fun GoodSheet(
                 Text(
                     text = "کاڵاکان",
                     color = colors.textPrimary,
-                    fontSize = 18.sp,
+                    fontSize = 18.5.sp,
                     fontWeight = FontWeight.ExtraBold,
                 )
                 Spacer(Modifier.weight(1f))
@@ -1730,7 +1730,7 @@ fun GoodSheet(
                     Text(
                         text = TextUtils.toKurdish(rows.size.toString()) + " کاڵا",
                         color = colors.brandDeep,
-                        fontSize = 11.5.sp,
+                        fontSize = 12.5.sp,
                         fontWeight = FontWeight.ExtraBold,
                     )
                 }
@@ -1781,7 +1781,7 @@ fun GoodSheet(
             Text(
                 text = "تێبینی",
                 color = colors.textPrimary,
-                fontSize = 16.sp,
+                fontSize = 16.5.sp,
                 fontWeight = FontWeight.ExtraBold,
             )
             Spacer(Modifier.height(8.dp))
@@ -1791,9 +1791,9 @@ fun GoodSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(96.dp),
-                placeholder = { Text("ئارەزوومەندانە…", fontSize = 13.sp, color = colors.textMuted) },
+                placeholder = { Text("ئارەزوومەندانە…", fontSize = 14.0.sp, color = colors.textMuted) },
                 shape = RoundedCornerShape(18.dp),
-                textStyle = TextStyle(fontSize = 13.5.sp, color = colors.textPrimary),
+                textStyle = TextStyle(fontSize = 14.5.sp, color = colors.textPrimary),
                 maxLines = 4,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = colors.surfaceSunken,
@@ -1809,7 +1809,7 @@ fun GoodSheet(
                 Text(
                     text = message,
                     color = colors.danger,
-                    fontSize = 12.sp,
+                    fontSize = 13.0.sp,
                     fontWeight = FontWeight.Bold,
                 )
             }
@@ -1888,7 +1888,7 @@ private fun GoodRow(
             Text(
                 text = TextUtils.toKurdish((index + 1).toString()),
                 color = colors.onBrand,
-                fontSize = 14.5.sp,
+                fontSize = 15.0.sp,
                 fontWeight = FontWeight.ExtraBold,
             )
         }
@@ -1899,7 +1899,7 @@ private fun GoodRow(
             modifier = Modifier.weight(1f),
             singleLine = true,
             textStyle = TextStyle(
-                fontSize = 14.sp,
+                fontSize = 14.5.sp,
                 color = colors.textPrimary,
                 fontWeight = FontWeight.SemiBold,
             ),
@@ -1911,7 +1911,7 @@ private fun GoodRow(
                         Text(
                             text = "ناوی کاڵا بنووسە…",
                             color = colors.textMuted,
-                            fontSize = 13.sp,
+                            fontSize = 14.0.sp,
                         )
                     }
                     inner()
@@ -1932,7 +1932,7 @@ private fun GoodRow(
                 Text(
                     text = TextUtils.toKurdish(quantity.toString()),
                     color = colors.textPrimary,
-                    fontSize = 17.sp,
+                    fontSize = 17.5.sp,
                     fontWeight = FontWeight.ExtraBold,
                 )
             }
@@ -2030,7 +2030,7 @@ private fun SelectChip(
         Text(
             text = label,
             color = if (selected) colors.onBrand else colors.textSecondary,
-            fontSize = 12.5.sp,
+            fontSize = 13.5.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -2076,7 +2076,7 @@ private fun DashedAddButton(
         Text(
             text = label,
             color = colors.brandDeep,
-            fontSize = 14.sp,
+            fontSize = 14.5.sp,
             fontWeight = FontWeight.ExtraBold,
         )
     }

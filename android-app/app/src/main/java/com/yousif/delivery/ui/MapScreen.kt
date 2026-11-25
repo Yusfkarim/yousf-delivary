@@ -92,7 +92,7 @@ fun MapScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(start = 14.dp, end = 14.dp, bottom = 102.dp),
+                .padding(start = 14.dp, end = 14.dp, bottom = 118.dp),
         ) {
             if (shown != null) {
                 val isShop = shown.isShop

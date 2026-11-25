@@ -75,8 +75,8 @@ fun SectionHeader(
     ) {
         Box(
             modifier = Modifier
-                .width(4.dp)
-                .height(17.dp)
+                .width(5.dp)
+                .height(20.dp)
                 .clip(RoundedCornerShape(50))
                 .background(
                     Brush.verticalGradient(listOf(colors.brand, colors.brandDeep)),
@@ -86,7 +86,7 @@ fun SectionHeader(
         Text(
             text = text,
             color = colors.textPrimary,
-            fontSize = 15.sp,
+            fontSize = 17.sp,
             fontWeight = FontWeight.ExtraBold,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.Start,
@@ -237,7 +237,7 @@ fun StatPill(
             Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(12.dp))
             Spacer(Modifier.width(5.dp))
         }
-        Text(text, color = tint, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text(text, color = tint, fontSize = 12.0.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -260,13 +260,13 @@ fun InfoRow(
         Text(
             text = label,
             color = colors.textSecondary,
-            fontSize = 12.5.sp,
+            fontSize = 13.5.sp,
             modifier = Modifier.weight(1f),
         )
         Text(
             text = value,
             color = valueColor,
-            fontSize = 13.sp,
+            fontSize = 14.0.sp,
             fontWeight = valueWeight,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -311,7 +311,7 @@ fun MessengerBadge(label: String, color: Color, icon: ImageVector? = null) {
             Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(11.dp))
             Spacer(Modifier.width(4.dp))
         }
-        Text(label, color = color, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = color, fontSize = 12.0.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -332,7 +332,7 @@ fun IconLabelButton(
     ) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(15.dp))
         Spacer(Modifier.width(5.dp))
-        Text(label, color = tint, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+        Text(label, color = tint, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -376,7 +376,7 @@ fun PhoneActionRow(
         Text(
             text = number,
             color = LocalAppColors.current.textSecondary,
-            fontSize = 11.sp,
+            fontSize = 12.0.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
@@ -427,7 +427,7 @@ private fun BrandPill(
         Text(
             text = label,
             color = Color.White,
-            fontSize = 11.5.sp,
+            fontSize = 12.5.sp,
             fontWeight = FontWeight.ExtraBold,
             maxLines = 1,
             softWrap = false,
@@ -518,12 +518,12 @@ fun EmptyState(title: String, hint: String, modifier: Modifier = Modifier) {
             }
         }
         Spacer(Modifier.height(14.dp))
-        Text(title, color = colors.textPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Text(title, color = colors.textPrimary, fontSize = 17.5.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         Text(
             hint,
             color = colors.textSecondary,
-            fontSize = 13.sp,
+            fontSize = 14.0.sp,
             textAlign = TextAlign.Center,
             lineHeight = 20.sp,
         )
@@ -597,7 +597,7 @@ fun Segmented(
                 Text(
                     text = option,
                     color = if (selected) colors.onBrand else colors.textSecondary,
-                    fontSize = 13.sp,
+                    fontSize = 14.0.sp,
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                 )
             }
