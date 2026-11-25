@@ -310,7 +310,7 @@ fun CustomerProfile(
                                 Text(
                                     text = "×" + TextUtils.toKurdish(item.total.toString()),
                                     color = colors.brandDeep,
-                                    fontSize = 13.sp,
+                                    fontSize = 16.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                 )
                             }
