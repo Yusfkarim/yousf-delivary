@@ -376,6 +376,9 @@ fun HomeScreen(viewModel: MainViewModel) {
                     onBump = { item, delta -> viewModel.bumpGood(item, delta) },
                     onRename = { item, title -> viewModel.renameGood(item, title) },
                     onNoteChange = { items, note -> viewModel.setGoodsNote(items, note) },
+                    onAssignOwner = { items, phone, name, currentId ->
+                        viewModel.assignGoodsOwner(items, phone, name, currentId)
+                    },
                     onDelete = { item -> viewModel.deleteGood(item) },
                     onAddFor = { customerId, customerName, ownerKey ->
                         presetCustomerId = customerId
@@ -492,8 +495,14 @@ fun HomeScreen(viewModel: MainViewModel) {
                 presetCustomerName = null
                 presetOwnerKey = ""
             },
-            onSave = { items ->
-                viewModel.saveGoods(items) {
+            onCommit = { items, customerId, customerName, phone, typedName ->
+                viewModel.commitGoods(
+                    items = items,
+                    pickedId = customerId,
+                    pickedName = customerName,
+                    phone = phone,
+                    typedName = typedName,
+                ) {
                     showGoodSheet = false
                     editingGood = null
                     presetCustomerId = null
@@ -502,15 +511,6 @@ fun HomeScreen(viewModel: MainViewModel) {
                 }
             },
             onAutoSave = { items -> viewModel.saveGoods(items) },
-            onSaveNewOwner = { items, name, phone ->
-                viewModel.saveGoodsForOwner(items, name, phone) {
-                    showGoodSheet = false
-                    editingGood = null
-                    presetCustomerId = null
-                    presetCustomerName = null
-                    presetOwnerKey = ""
-                }
-            },
         )
     }
 
