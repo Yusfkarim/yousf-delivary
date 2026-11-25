@@ -285,7 +285,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Segmented(
@@ -499,6 +499,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                     presetCustomerName = null
                 }
             },
+            onAutoSave = { items -> viewModel.saveGoods(items) },
         )
     }
 
@@ -580,13 +581,13 @@ private fun HomeHeader(
             .fillMaxWidth()
             .background(colors.background)
             .statusBarsPadding()
-            .padding(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
+            .padding(start = 14.dp, end = 14.dp, top = 3.dp, bottom = 2.dp),
     ) {
         // One compact glass bar — the map keeps the rest of the screen.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(54.dp)
+                .height(47.dp)
                 .shadow(
                     elevation = 10.dp,
                     shape = RoundedCornerShape(22.dp),
@@ -636,7 +637,7 @@ private fun HomeHeader(
             Spacer(Modifier.weight(1f))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                ShiningBrand(size = 30.dp)
+                ShiningBrand(size = 26.dp)
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = "یوسف دلیڤەری",
@@ -656,7 +657,7 @@ private fun HomeHeader(
                     onClick = onSync,
                     contentDescription = "هاوکاتکردن",
                     tint = colors.brand,
-                    size = 40.dp,
+                    size = 36.dp,
                 )
                 if (syncing) {
                     Box(
@@ -678,7 +679,7 @@ private fun HomeHeader(
             }
         }
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(4.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             MiniChip(
@@ -719,7 +720,7 @@ private fun MiniChip(
             .clip(RoundedCornerShape(50))
             .background(colors.surface)
             .border(1.dp, colors.brand.copy(alpha = 0.30f), RoundedCornerShape(50))
-            .padding(horizontal = 10.dp, vertical = 5.dp),
+            .padding(horizontal = 9.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         leading()
@@ -727,7 +728,7 @@ private fun MiniChip(
         Text(
             text = text,
             color = tint,
-            fontSize = 11.5.sp,
+            fontSize = 10.5.sp,
             fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium,
         )
     }
@@ -740,7 +741,7 @@ private fun SettingsButton(onClick: () -> Unit) {
     val shape = RoundedCornerShape(16.dp)
     Box(
         modifier = Modifier
-            .size(40.dp)
+            .size(36.dp)
             .shadow(9.dp, shape, clip = false, ambientColor = Color(0x45F97316), spotColor = Color(0x45F97316))
             .clip(shape)
             .background(
@@ -813,10 +814,11 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
         onValueChange = onQueryChange,
         modifier = Modifier
             .fillMaxWidth()
+            .height(50.dp)
             .padding(horizontal = 16.dp),
         singleLine = true,
         placeholder = {
-            Text("گەڕان: ناو، ژمارە، ناونیشان", fontSize = 13.5.sp, color = colors.textMuted)
+            Text("گەڕان: ناو، ژمارە، ناونیشان", fontSize = 12.5.sp, color = colors.textMuted)
         },
         leadingIcon = {
             Icon(
@@ -839,7 +841,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
             }
         },
         shape = RoundedCornerShape(18.dp),
-        textStyle = TextStyle(fontSize = 14.sp, color = colors.textPrimary),
+        textStyle = TextStyle(fontSize = 13.sp, color = colors.textPrimary),
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = if (colors.isDark) Color(0xFF241D19) else Color(0xFFFFFFFF),
             unfocusedContainerColor = if (colors.isDark) Color(0xFF221B17) else Color(0xFFFFFBF7),
