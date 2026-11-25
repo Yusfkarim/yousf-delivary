@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -40,11 +42,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.PathEffect
@@ -67,6 +71,7 @@ import com.yousif.delivery.ui.icons.AppIcons
 import com.yousif.delivery.ui.theme.LocalAppColors
 import com.yousif.delivery.util.TextUtils
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.UUID
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.draw.shadow
@@ -563,6 +568,20 @@ private fun OwnerDetail(
     var newTitle by remember(group.key) { mutableStateOf("") }
     var newQuantity by remember(group.key) { mutableStateOf(1) }
     val focus = LocalFocusManager.current
+    /* The keyboard must never hide what the driver is typing: the row is lifted
+       above it the moment it opens and again whenever the field is touched. */
+    val bringIntoView = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
+    val revealTyping: () -> Unit = {
+        scope.launch {
+            delay(220)
+            runCatching { bringIntoView.bringIntoView() }
+        }
+    }
+
+    LaunchedEffect(adding) {
+        if (adding) revealTyping()
+    }
 
     fun saveNewRow() {
         val clean = newTitle.trim()
@@ -585,7 +604,11 @@ private fun OwnerDetail(
         newQuantity = 1
     }
 
-    Column(modifier.fillMaxSize()) {
+    Column(
+        modifier
+            .fillMaxSize()
+            .imePadding(),
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -668,6 +691,7 @@ private fun OwnerDetail(
                         if (adding) {
                             if (group.items.isNotEmpty()) DividerLine()
                             NewGoodLine(
+                                modifier = Modifier.bringIntoViewRequester(bringIntoView),
                                 index = group.items.size,
                                 title = newTitle,
                                 quantity = newQuantity,
@@ -685,6 +709,7 @@ private fun OwnerDetail(
                                     newQuantity = 1
                                     focus.clearFocus()
                                 },
+                                onRequestVisible = revealTyping,
                             )
                         }
                     }
@@ -1127,9 +1152,11 @@ private fun NewGoodLine(
     onQuantity: (Int) -> Unit,
     onSave: () -> Unit,
     onCancel: () -> Unit,
+    onRequestVisible: () -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
     val colors = LocalAppColors.current
-    Column(Modifier.padding(vertical = 8.dp)) {
+    Column(modifier.padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
@@ -1157,7 +1184,9 @@ private fun NewGoodLine(
                 BasicTextField(
                     value = title,
                     onValueChange = onTitle,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { state -> if (state.isFocused) onRequestVisible() },
                     singleLine = true,
                     textStyle = TextStyle(
                         fontSize = 14.sp,
