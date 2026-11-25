@@ -177,8 +177,8 @@ fun CustomerCard(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (customer.hasWhatsapp) MessengerBadge("واتسئەپ", colors.successDeep, AppIcons.whatsapp())
-                if (customer.hasViber) MessengerBadge("ڤایبەر", colors.brandDeep, AppIcons.viber())
+                if (customer.hasWhatsapp) MessengerBadge("واتسئەپ", WhatsAppBrand, AppIcons.whatsapp())
+                if (customer.hasViber) MessengerBadge("ڤایبەر", ViberBrand, AppIcons.viber())
                 if (extras.isNotEmpty()) {
                     Row(
                         modifier = Modifier
@@ -223,8 +223,8 @@ fun CustomerCard(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (extra.hasWhatsapp) MessengerBadge("واتسئەپ", colors.successDeep, AppIcons.whatsapp())
-                        if (extra.hasViber) MessengerBadge("ڤایبەر", colors.brandDeep, AppIcons.viber())
+                        if (extra.hasWhatsapp) MessengerBadge("واتسئەپ", WhatsAppBrand, AppIcons.whatsapp())
+                        if (extra.hasViber) MessengerBadge("ڤایبەر", ViberBrand, AppIcons.viber())
                     }
                     PhoneActionRow(
                         number = PhoneUtils.pretty(extra.number),

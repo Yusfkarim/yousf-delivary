@@ -265,7 +265,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                 syncing = syncing,
                 gpsActive = myLocation != null,
                 onSync = { viewModel.refresh() },
-                onBell = { showSettings = true },
+                onSettings = { showSettings = true },
             )
         },
     ) { padding ->
@@ -571,7 +571,7 @@ private fun HomeHeader(
     syncing: Boolean,
     gpsActive: Boolean,
     onSync: () -> Unit,
-    onBell: () -> Unit,
+    onSettings: () -> Unit,
 ) {
     val colors = LocalAppColors.current
     Column(
@@ -611,7 +611,7 @@ private fun HomeHeader(
         ) {
             // Notification / settings — its own raised orange glass button.
             Box {
-                BellButton(onClick = onBell)
+                SettingsButton(onClick = onSettings)
                 if (pending > 0) {
                     Box(
                         modifier = Modifier
@@ -734,31 +734,31 @@ private fun MiniChip(
 
 /** The bell: a raised orange-glass button that cannot be missed. */
 @Composable
-private fun BellButton(onClick: () -> Unit) {
+private fun SettingsButton(onClick: () -> Unit) {
     val colors = LocalAppColors.current
     val shape = RoundedCornerShape(16.dp)
     Box(
         modifier = Modifier
             .size(40.dp)
-            .shadow(8.dp, shape, clip = false, ambientColor = Color(0x40F97316), spotColor = Color(0x40F97316))
+            .shadow(9.dp, shape, clip = false, ambientColor = Color(0x45F97316), spotColor = Color(0x45F97316))
             .clip(shape)
             .background(
                 Brush.linearGradient(
                     listOf(
-                        colors.brand.copy(alpha = 0.16f),
-                        colors.brand.copy(alpha = 0.04f),
+                        colors.brand.copy(alpha = 0.22f),
+                        colors.brand.copy(alpha = 0.07f),
                     ),
                 ),
             )
-            .border(1.2.dp, colors.brand.copy(alpha = 0.45f), shape)
+            .border(1.3.dp, colors.brand.copy(alpha = 0.55f), shape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = AppIcons.bell(),
-            contentDescription = "ئاگادارکردنەوە",
+            imageVector = AppIcons.settings(),
+            contentDescription = "ڕێکخستن",
             tint = colors.brandDeep,
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(21.dp),
         )
     }
 }
