@@ -45,21 +45,30 @@ fun GlassCard(
 ) {
     val colors = LocalAppColors.current
     val shape = RoundedCornerShape(radius)
+    // Soft 3D: a light-to-warm vertical ramp gives the slab a raised face, the
+    // wide warm shadow below it lifts the card off the cream, and the hairline
+    // highlight along the top edge reads as a bevel.
     val fill = if (colors.isDark) {
-        Brush.linearGradient(listOf(Color(0xFF2C221C), Color(0xFF1C1613)))
+        Brush.verticalGradient(
+            listOf(Color(0xFF3B2E26), Color(0xFF2A211B), Color(0xFF1D1612)),
+        )
     } else {
-        Brush.linearGradient(listOf(Color(0xFFFFFFFF), Color(0xFFFFF3E7)))
+        Brush.verticalGradient(
+            listOf(Color(0xFFFFFFFF), Color(0xFFFFF9F3), Color(0xFFFDEEE0)),
+        )
     }
-    val line = if (colors.isDark) Color(0xFF40322A) else Color(0xFFFFFFFF)
-    val glow = if (colors.isDark) Color(0x44000000) else Color(0x24A57A54)
-    val sheen = if (colors.isDark) Color(0x14FFD9B8) else Color(0x99FFFFFF)
+    val line = if (colors.isDark) Color(0xFF4A3A31) else Color(0xFFFFFFFF)
+    val glow = if (colors.isDark) Color(0x55000000) else Color(0x2EA57A54)
+    val glowDeep = if (colors.isDark) Color(0x66000000) else Color(0x1F8A5C33)
+    val sheen = if (colors.isDark) Color(0x22FFD9B8) else Color(0xCCFFFFFF)
 
     val base = modifier
         .fillMaxWidth()
-        .shadow(14.dp, shape, clip = false, ambientColor = glow, spotColor = glow)
+        .shadow(20.dp, shape, clip = false, ambientColor = glowDeep, spotColor = glowDeep)
+        .shadow(8.dp, shape, clip = false, ambientColor = glow, spotColor = glow)
         .clip(shape)
         .background(fill)
-        .border(1.dp, line, shape)
+        .border(1.2.dp, line, shape)
 
     Box(if (onClick != null) base.clickable(onClick = onClick) else base) {
         Column(Modifier.padding(padding)) { content() }
@@ -72,6 +81,22 @@ fun GlassCard(
                 .background(
                     Brush.horizontalGradient(
                         listOf(Color.Transparent, sheen, Color.Transparent),
+                    ),
+                ),
+        )
+        // Its twin along the bottom edge, dimmer — the underside of the bevel.
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth(0.9f)
+                .height(1.5.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color.Transparent,
+                            if (colors.isDark) Color(0x11FFD9B8) else Color(0x1A9A6A3E),
+                            Color.Transparent,
+                        ),
                     ),
                 ),
         )

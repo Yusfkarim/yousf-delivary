@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -863,16 +864,17 @@ private fun HomeBottomBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(14.dp, shape, clip = false, ambientColor = Color(0x22A0785A), spotColor = Color(0x22A0785A))
+            .shadow(24.dp, shape, clip = false, ambientColor = Color(0x3A8A5C33), spotColor = Color(0x3A8A5C33))
+            .shadow(10.dp, shape, clip = false, ambientColor = Color(0x1FA0785A), spotColor = Color(0x1FA0785A))
             .clip(shape)
             .background(
                 if (colors.isDark) {
-                    Brush.linearGradient(listOf(Color(0xFF2C221C), Color(0xFF1C1613)))
+                    Brush.verticalGradient(listOf(Color(0xFF3B2E26), Color(0xFF2A211B), Color(0xFF1B1512)))
                 } else {
-                    Brush.linearGradient(listOf(Color(0xFFFFFFFF), Color(0xFFFFF4EA)))
+                    Brush.verticalGradient(listOf(Color(0xFFFFFFFF), Color(0xFFFFF8F1), Color(0xFFFCEBDB)))
                 },
             )
-            .border(1.dp, if (colors.isDark) Color(0xFF40322A) else Color(0xFFFFFFFF), shape)
+            .border(1.2.dp, if (colors.isDark) Color(0xFF4A3A31) else Color(0xFFFFFFFF), shape)
             .padding(start = 8.dp, end = 8.dp, top = 7.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -943,8 +945,31 @@ private fun NavItem(
                     scaleX = scale
                     scaleY = scale
                 }
+                .shadow(
+                    (10.dp * highlight),
+                    RoundedCornerShape(50),
+                    clip = false,
+                    ambientColor = colors.brand.copy(alpha = 0.35f * highlight),
+                    spotColor = colors.brand.copy(alpha = 0.35f * highlight),
+                )
                 .clip(RoundedCornerShape(50))
-                .background(colors.brandSoft.copy(alpha = highlight)),
+                .background(
+                    if (highlight <= 0.01f) {
+                        Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
+                    } else {
+                        Brush.verticalGradient(
+                            listOf(
+                                lerp(colors.brandSoft, Color.White, 0.35f * highlight),
+                                colors.brandSoft,
+                            ),
+                        )
+                    },
+                )
+                .border(
+                    1.dp,
+                    Color.White.copy(alpha = 0.55f * highlight),
+                    RoundedCornerShape(50),
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
