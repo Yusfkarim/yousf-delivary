@@ -209,7 +209,6 @@ fun CustomerCard(
         Spacer(Modifier.height(12.dp))
 
         PhoneActionRow(
-            number = PhoneUtils.pretty(customer.primaryPhone),
             onCall = { IntentUtils.dial(context, customer.primaryPhone) },
             onWhatsApp = { IntentUtils.whatsapp(context, customer.primaryPhone) },
             onViber = { IntentUtils.viber(context, customer.primaryPhone) },
