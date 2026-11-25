@@ -75,10 +75,16 @@ fun GlassCard(
 
     val base = modifier
         .fillMaxWidth()
-        .shadow(20.dp, shape, clip = false, ambientColor = glowDeep, spotColor = glowDeep)
-        .shadow(8.dp, shape, clip = false, ambientColor = glow, spotColor = glow)
+        .softDepth(radius = radius, color = glowDeep, offsetY = 6.dp, spread = 7.dp)
+        .softDepth(radius = radius, color = glow, offsetY = 3.dp, spread = 4.dp)
         .clip(shape)
         .background(fill)
+        .gloss3D(
+            radius = radius,
+            sheen = if (colors.isDark) 0.05f else 0.09f,
+            shade = if (colors.isDark) 0.20f else 0.06f,
+            bevel = Color.White.copy(alpha = if (colors.isDark) 0.10f else 0.40f),
+        )
         .border(1.2.dp, line, shape)
 
     Box(if (onClick != null) base.clickable(onClick = onClick) else base) {

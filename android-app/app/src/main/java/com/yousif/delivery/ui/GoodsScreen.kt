@@ -429,13 +429,11 @@ private fun OwnerMenu(
             }
 
             items(items = groups, key = { group -> group.key }) { group ->
-                Box(Modifier.animateItem()) {
-                    OwnerCard(
-                        group = group,
-                        onClick = { onOpen(group) },
-                        onDelete = { onDeleteGroup(group) },
-                    )
-                }
+                OwnerCard(
+                    group = group,
+                    onClick = { onOpen(group) },
+                    onDelete = { onDeleteGroup(group) },
+                )
             }
         }
     }
@@ -454,8 +452,31 @@ private fun OwnerCard(group: GoodGroup, onClick: () -> Unit, onDelete: () -> Uni
             Box(
                 modifier = Modifier
                     .size(46.dp)
+                    .softDepth(
+                        radius = 15.dp,
+                        color = (if (nobody) colors.border else colors.brandSoft).copy(alpha = 0.50f),
+                        offsetY = 3.dp,
+                        spread = 3.dp,
+                    )
                     .clip(RoundedCornerShape(15.dp))
-                    .background(if (nobody) colors.surfaceAlt else colors.brandSoft)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                lerp(
+                                    if (nobody) colors.surfaceAlt else colors.brandSoft,
+                                    Color.White,
+                                    0.45f,
+                                ),
+                                if (nobody) colors.surfaceAlt else colors.brandSoft,
+                            ),
+                        ),
+                    )
+                    .gloss3D(
+                        radius = 15.dp,
+                        sheen = 0.30f,
+                        shade = 0.10f,
+                        bevel = Color.White.copy(alpha = 0.55f),
+                    )
                     .border(
                         1.dp,
                         if (nobody) colors.border else colors.brand.copy(alpha = 0.22f),
@@ -862,12 +883,11 @@ private fun OwnerBar(
             Box(
                 modifier = Modifier
                     .size(42.dp)
-                    .shadow(
-                        8.dp,
-                        RoundedCornerShape(14.dp),
-                        clip = false,
-                        ambientColor = colors.brand.copy(alpha = 0.45f),
-                        spotColor = colors.brand.copy(alpha = 0.45f),
+                    .softDepth(
+                        radius = 14.dp,
+                        color = colors.brand.copy(alpha = 0.45f),
+                        offsetY = 4.dp,
+                        spread = 4.dp,
                     )
                     .clip(RoundedCornerShape(14.dp))
                     .background(
@@ -875,6 +895,7 @@ private fun OwnerBar(
                             listOf(lerp(colors.brand, Color.White, 0.22f), colors.brand),
                         ),
                     )
+                    .gloss3D(radius = 14.dp, sheen = 0.30f, shade = 0.18f)
                     .border(1.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
                     .clickable {
                         if (phone.filter(Char::isDigit).length >= 7) {
@@ -1567,11 +1588,17 @@ fun GoodSheet(
                 Box(
                     modifier = Modifier
                         .size(48.dp)
-                        .shadow(10.dp, RoundedCornerShape(16.dp), clip = false, ambientColor = Color(0x33F97316), spotColor = Color(0x33F97316))
+                        .softDepth(
+                            radius = 16.dp,
+                            color = colors.brand.copy(alpha = 0.35f),
+                            offsetY = 4.dp,
+                            spread = 4.dp,
+                        )
                         .clip(RoundedCornerShape(16.dp))
                         .background(
                             Brush.verticalGradient(listOf(Color(0xFFFFFFFF), colors.brandSoft)),
                         )
+                        .gloss3D(radius = 16.dp, sheen = 0.34f, shade = 0.12f)
                         .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(16.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -1962,13 +1989,19 @@ private fun StepCircle(icon: androidx.compose.ui.graphics.vector.ImageVector, on
     Box(
         modifier = Modifier
             .size(30.dp)
-            .shadow(5.dp, RoundedCornerShape(50), clip = false, ambientColor = colors.brand.copy(alpha = 0.4f), spotColor = colors.brand.copy(alpha = 0.4f))
+            .softDepth(
+                radius = 15.dp,
+                color = colors.brand.copy(alpha = 0.40f),
+                offsetY = 3.dp,
+                spread = 3.dp,
+            )
             .clip(RoundedCornerShape(50))
             .background(
                 Brush.verticalGradient(
                     listOf(lerp(colors.brandSoft, Color.White, 0.6f), colors.brandSoft),
                 ),
             )
+            .gloss3D(radius = 15.dp, sheen = 0.40f, shade = 0.10f)
             .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(50))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -1992,12 +2025,11 @@ private fun SelectChip(
     val shape = RoundedCornerShape(50)
     Row(
         modifier = Modifier
-            .shadow(
-                if (selected) 9.dp else 4.dp,
-                shape,
-                clip = false,
-                ambientColor = if (selected) colors.brand.copy(alpha = 0.5f) else Color(0x1A9A6A3E),
-                spotColor = if (selected) colors.brand.copy(alpha = 0.5f) else Color(0x1A9A6A3E),
+            .softDepth(
+                radius = 20.dp,
+                color = if (selected) colors.brand.copy(alpha = 0.50f) else Color(0x2E9A6A3E),
+                offsetY = if (selected) 4.dp else 2.dp,
+                spread = if (selected) 4.dp else 3.dp,
             )
             .clip(shape)
             .background(

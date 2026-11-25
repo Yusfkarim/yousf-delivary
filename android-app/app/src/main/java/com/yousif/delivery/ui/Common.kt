@@ -22,7 +22,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
@@ -39,6 +43,70 @@ import com.yousif.delivery.ui.theme.LocalAppColors
 
 private val CardShape = RoundedCornerShape(22.dp)
 
+/**
+ * Soft 3D depth without a blur pass: a short stack of rounded rectangles.
+ * `Modifier.shadow` allocates an off-screen layer per node, which is what made
+ * long lists stutter; this is a few cheap draw calls instead.
+ */
+fun Modifier.softDepth(
+    radius: Dp = 22.dp,
+    color: Color = Color(0x268A5C33),
+    offsetY: Dp = 4.dp,
+    spread: Dp = 5.dp,
+): Modifier = drawBehind {
+    val r = radius.toPx()
+    val dy = offsetY.toPx()
+    val s = spread.toPx()
+    val steps = 4
+    for (i in steps downTo 1) {
+        val t = i / steps.toFloat()
+        val grow = s * t
+        drawRoundRect(
+            color = color.copy(alpha = color.alpha * (0.55f - 0.10f * i)),
+            topLeft = Offset(grow * 0.30f, dy - grow * 0.50f),
+            size = Size(size.width - grow * 0.60f, size.height + grow * 0.40f),
+            cornerRadius = CornerRadius(r + grow * 0.45f),
+        )
+    }
+}
+
+/**
+ * Glossy 3D bevel painted *under* the content, so icons and labels stay crisp:
+ * a lit top face, a darker bottom face and a bright bevel edge.
+ */
+fun Modifier.gloss3D(
+    radius: Dp = 22.dp,
+    sheen: Float = 0.30f,
+    shade: Float = 0.12f,
+    bevel: Color = Color.White.copy(alpha = 0.45f),
+): Modifier = drawBehind {
+    val cr = CornerRadius(radius.toPx())
+    drawRoundRect(
+        brush = Brush.verticalGradient(
+            listOf(Color.White.copy(alpha = sheen), Color.Transparent),
+            startY = 0f,
+            endY = size.height * 0.55f,
+        ),
+        cornerRadius = cr,
+    )
+    drawRoundRect(
+        brush = Brush.verticalGradient(
+            listOf(Color.Transparent, Color.Black.copy(alpha = shade)),
+            startY = size.height * 0.55f,
+            endY = size.height,
+        ),
+        cornerRadius = cr,
+    )
+    drawRoundRect(
+        brush = Brush.verticalGradient(
+            listOf(bevel.copy(alpha = bevel.alpha), Color.Transparent),
+            startY = 0f,
+            endY = size.height * 0.18f,
+        ),
+        cornerRadius = cr,
+    )
+}
+
 /** White (or espresso, at night) card with a hairline border and a soft shadow. */
 @Composable
 fun AppCard(
@@ -49,11 +117,27 @@ fun AppCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val dark = LocalAppColors.current.isDark
     val base = modifier
         .fillMaxWidth()
-        .shadow(elevation = 6.dp, shape = CardShape, clip = false, ambientColor = Color(0x14A0785A), spotColor = Color(0x14A0785A))
+        .softDepth(
+            radius = 22.dp,
+            color = if (dark) Color(0x55000000) else Color(0x248A5C33),
+            offsetY = 5.dp,
+            spread = 6.dp,
+        )
         .clip(CardShape)
-        .background(color)
+        .background(
+            Brush.verticalGradient(
+                listOf(lerp(color, Color.White, if (dark) 0.05f else 0.10f), color),
+            ),
+        )
+        .gloss3D(
+            radius = 22.dp,
+            sheen = if (dark) 0.05f else 0.09f,
+            shade = if (dark) 0.20f else 0.07f,
+            bevel = Color.White.copy(alpha = if (dark) 0.10f else 0.35f),
+        )
         .border(1.dp, borderColor, CardShape)
     val clickable = if (onClick != null) base.clickable(onClick = onClick) else base
     Column(clickable.padding(padding)) { content() }
@@ -107,8 +191,28 @@ fun BrandBadge(
     Box(
         modifier = modifier
             .size(size)
+            .softDepth(
+                radius = size / 3,
+                color = colors.brand.copy(alpha = 0.45f),
+                offsetY = 4.dp,
+                spread = 4.dp,
+            )
             .clip(shape)
-            .background(Brush.linearGradient(listOf(colors.brand, Color(0xFFFB923C)))),
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        lerp(colors.brand, Color.White, 0.30f),
+                        colors.brand,
+                        lerp(colors.brand, Color.Black, 0.22f),
+                    ),
+                ),
+            )
+            .gloss3D(
+                radius = size / 3,
+                sheen = 0.34f,
+                shade = 0.20f,
+                bevel = Color.White.copy(alpha = 0.60f),
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -135,12 +239,11 @@ fun SoftIconButton(
     Box(
         modifier = modifier
             .size(size)
-            .shadow(
-                elevation = 9.dp,
-                shape = shape,
-                clip = false,
-                ambientColor = if (colors.isDark) Color(0x66000000) else Color(0x338A5C33),
-                spotColor = if (colors.isDark) Color(0x66000000) else Color(0x338A5C33),
+            .softDepth(
+                radius = size / 3,
+                color = if (colors.isDark) Color(0x66000000) else Color(0x3D8A5C33),
+                offsetY = 4.dp,
+                spread = 4.dp,
             )
             .clip(shape)
             .background(
@@ -148,6 +251,12 @@ fun SoftIconButton(
                     if (colors.isDark) listOf(Color(0xFF3B2E26), Color(0xFF241B16))
                     else listOf(Color(0xFFFFFFFF), Color(0xFFFFF3E8)),
                 ),
+            )
+            .gloss3D(
+                radius = size / 3,
+                sheen = if (colors.isDark) 0.10f else 0.38f,
+                shade = if (colors.isDark) 0.22f else 0.10f,
+                bevel = Color.White.copy(alpha = if (colors.isDark) 0.12f else 0.55f),
             )
             .border(1.dp, if (colors.isDark) Color(0xFF4A3A31) else Color.White, shape)
             .clickable(onClick = onClick),
@@ -187,15 +296,20 @@ fun PillButton(
     Box(
         modifier = modifier
             .height(height)
-            .shadow(
-                10.dp,
-                shape,
-                clip = false,
-                ambientColor = container.copy(alpha = 0.50f),
-                spotColor = container.copy(alpha = 0.50f),
+            .softDepth(
+                radius = height / 2,
+                color = container.copy(alpha = 0.42f),
+                offsetY = 4.dp,
+                spread = 5.dp,
             )
             .clip(shape)
             .background(face)
+            .gloss3D(
+                radius = height / 2,
+                sheen = 0.30f,
+                shade = 0.18f,
+                bevel = Color.White.copy(alpha = 0.50f),
+            )
             .border(1.dp, Color.White.copy(alpha = 0.30f), shape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -224,11 +338,17 @@ fun StatPill(
 ) {
     Row(
         modifier = modifier
-            .shadow(7.dp, RoundedCornerShape(50), clip = false, ambientColor = soft.copy(alpha = 0.55f), spotColor = soft.copy(alpha = 0.55f))
+            .softDepth(
+                radius = 20.dp,
+                color = soft.copy(alpha = 0.45f),
+                offsetY = 3.dp,
+                spread = 3.dp,
+            )
             .clip(RoundedCornerShape(50))
             .background(
                 Brush.verticalGradient(listOf(lerp(soft, Color.White, 0.35f), soft)),
             )
+            .gloss3D(radius = 20.dp, sheen = 0.26f, shade = 0.10f)
             .border(1.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(50))
             .padding(horizontal = 10.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -551,7 +671,12 @@ fun Segmented(
     val colors = LocalAppColors.current
     Row(
         modifier = modifier
-            .shadow(8.dp, RoundedCornerShape(50), clip = false, ambientColor = Color(0x228A5C33), spotColor = Color(0x228A5C33))
+            .softDepth(
+                radius = 22.dp,
+                color = if (colors.isDark) Color(0x55000000) else Color(0x2E8A5C33),
+                offsetY = 4.dp,
+                spread = 5.dp,
+            )
             .clip(RoundedCornerShape(50))
             .background(
                 Brush.verticalGradient(
@@ -569,12 +694,17 @@ fun Segmented(
                 modifier = Modifier
                     .weight(1f)
                     .height(38.dp)
-                    .shadow(
-                        if (selected) 9.dp else 0.dp,
-                        RoundedCornerShape(50),
-                        clip = false,
-                        ambientColor = colors.brand.copy(alpha = 0.45f),
-                        spotColor = colors.brand.copy(alpha = 0.45f),
+                    .then(
+                        if (selected) {
+                            Modifier.softDepth(
+                                radius = 19.dp,
+                                color = colors.brand.copy(alpha = 0.45f),
+                                offsetY = 3.dp,
+                                spread = 4.dp,
+                            )
+                        } else {
+                            Modifier
+                        },
                     )
                     .clip(RoundedCornerShape(50))
                     .background(
@@ -588,6 +718,18 @@ fun Segmented(
                             )
                         } else {
                             Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
+                        },
+                    )
+                    .then(
+                        if (selected) {
+                            Modifier.gloss3D(
+                                radius = 19.dp,
+                                sheen = 0.30f,
+                                shade = 0.16f,
+                                bevel = Color.White.copy(alpha = 0.45f),
+                            )
+                        } else {
+                            Modifier
                         },
                     )
                     .border(1.dp, Color.White.copy(alpha = if (selected) 0.35f else 0f), RoundedCornerShape(50))
