@@ -380,7 +380,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                     onAddFor = { customerId, customerName, ownerKey ->
                         presetCustomerId = customerId
                         presetCustomerName = customerName
-                        presetOwnerKey = ownerKey
+                        presetOwnerKey = ownerKey.orEmpty()
                         editingGood = null
                         showGoodSheet = true
                     },
