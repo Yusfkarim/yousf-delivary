@@ -375,6 +375,9 @@ fun HomeScreen(viewModel: MainViewModel) {
                     onAssignOwner = { items, phone, name, currentId ->
                         viewModel.assignGoodsOwner(items, phone, name, currentId)
                     },
+                    onPickPerson = { items, customer ->
+                        viewModel.assignGoodsToPerson(items, customer.id)
+                    },
                     onDelete = { item -> viewModel.deleteGood(item) },
                     onAddGood = { item -> viewModel.saveGood(item) },
                     newCellSignal = newCellSignal,

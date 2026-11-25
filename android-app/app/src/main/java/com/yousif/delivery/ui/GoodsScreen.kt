@@ -93,6 +93,7 @@ fun GoodsScreen(
     onRename: (GoodItem, String) -> Unit,
     onNoteChange: (List<GoodItem>, String) -> Unit,
     onAssignOwner: (List<GoodItem>, String, String, String?) -> Unit,
+    onPickPerson: (List<GoodItem>, Customer) -> Unit,
     onDelete: (GoodItem) -> Unit,
     onAddGood: (GoodItem) -> Unit,
     /** Incremented by the «+» of the bottom bar: open a brand-new empty cell. */
@@ -180,6 +181,10 @@ fun GoodsScreen(
                 val target = matchedPerson(phone, people)
                 onAssignOwner(items, phone, name, currentId)
                 if (target != null) openKey = target.id
+            },
+            onPickPerson = { items, candidate ->
+                onPickPerson(items, candidate)
+                openKey = candidate.id
             },
             onDelete = { item -> deleteTarget = item },
             onAddGood = onAddGood,
@@ -445,6 +450,7 @@ private fun OwnerDetail(
     onRename: (GoodItem, String) -> Unit,
     onNoteChange: (List<GoodItem>, String) -> Unit,
     onAssignOwner: (List<GoodItem>, String, String, String?) -> Unit,
+    onPickPerson: (List<GoodItem>, Customer) -> Unit,
     onDelete: (GoodItem) -> Unit,
     onAddGood: (GoodItem) -> Unit,
     modifier: Modifier = Modifier,
@@ -535,6 +541,7 @@ private fun OwnerDetail(
                     onAssign = { phone, name ->
                         onAssignOwner(group.items, phone, name, group.customerId)
                     },
+                    onPick = { candidate -> onPickPerson(group.items, candidate) },
                 )
             }
 
@@ -629,6 +636,7 @@ private fun OwnerBar(
     group: GoodGroup,
     people: List<Customer>,
     onAssign: (phone: String, name: String) -> Unit,
+    onPick: (Customer) -> Unit,
 ) {
     val colors = LocalAppColors.current
     val focus = LocalFocusManager.current
@@ -638,6 +646,23 @@ private fun OwnerBar(
     val savedPhone = person?.primaryPhone.orEmpty()
     var phone by remember(group.key) { mutableStateOf(savedPhone) }
     var name by remember(group.key) { mutableStateOf("") }
+    var query by remember(group.key) { mutableStateOf("") }
+
+    val searchDigits = query.filter(Char::isDigit)
+    val shown = remember(query, people) {
+        if (query.isBlank()) {
+            people.take(16)
+        } else {
+            people
+                .filter { candidate ->
+                    candidate.name.contains(query.trim(), ignoreCase = true) ||
+                        (searchDigits.isNotEmpty() && candidate.allPhones.any { number ->
+                            number.filter(Char::isDigit).contains(searchDigits)
+                        })
+                }
+                .take(16)
+        }
+    }
 
     LaunchedEffect(savedPhone) {
         if (phone.isBlank() && savedPhone.isNotBlank()) phone = savedPhone
@@ -765,6 +790,40 @@ private fun OwnerBar(
             color = colors.textSecondary,
             fontSize = 11.sp,
         )
+
+        /* The people themselves — a tappable list with its own search, so a
+           person can be picked without typing any number. */
+        Spacer(Modifier.height(10.dp))
+        GlassInput(
+            value = query,
+            onValueChange = { query = it },
+            placeholder = "گەڕان بە ناو یان ژمارە…",
+            leading = AppIcons.search(),
+            minHeight = 42.dp,
+            textSize = 12.5.sp,
+        )
+
+        Spacer(Modifier.height(9.dp))
+        if (shown.isEmpty()) {
+            Text(
+                text = "هیچ کەسێک نەدۆزرایەوە — ژمارە بنووسە بۆ دروستکردنی",
+                color = colors.textMuted,
+                fontSize = 11.5.sp,
+            )
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(items = shown, key = { candidate -> candidate.id }) { candidate ->
+                    SelectChip(
+                        label = candidate.name,
+                        selected = candidate.id == group.customerId,
+                        onClick = {
+                            onPick(candidate)
+                            focus.clearFocus()
+                        },
+                    )
+                }
+            }
+        }
     }
 }
 
