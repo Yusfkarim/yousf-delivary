@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,6 +65,7 @@ import com.yousif.delivery.data.Kinds
 import com.yousif.delivery.ui.icons.AppIcons
 import com.yousif.delivery.ui.theme.LocalAppColors
 import com.yousif.delivery.util.TextUtils
+import kotlinx.coroutines.delay
 import java.util.UUID
 
 /**
@@ -573,6 +575,7 @@ fun GoodSheet(
     onSave: (List<GoodItem>) -> Unit,
     presetCustomerId: String? = null,
     presetCustomerName: String? = null,
+    onAutoSave: (List<GoodItem>) -> Unit = {},
 ) {
     val colors = LocalAppColors.current
     val focus = LocalFocusManager.current
@@ -602,6 +605,33 @@ fun GoodSheet(
         rows = copy
     }
 
+    /* Everything typed here is written straight away: swiping the sheet away or
+       closing the app can never take a good with it. */
+    fun buildItems(): List<GoodItem> {
+        val now = System.currentTimeMillis()
+        return rows
+            .filter { draft -> draft.title.isNotBlank() }
+            .map { draft ->
+                GoodItem(
+                    id = draft.id,
+                    title = draft.title.trim(),
+                    quantity = draft.quantity.coerceAtLeast(1),
+                    note = note.trim(),
+                    customerId = customerId,
+                    customerName = customerName,
+                    createdAt = if (draft.createdAt > 0) draft.createdAt else now,
+                    updatedAt = now,
+                )
+            }
+    }
+
+    LaunchedEffect(rows.map { draft -> draft.title to draft.quantity }, note, customerId) {
+        val items = buildItems()
+        if (items.isEmpty()) return@LaunchedEffect
+        delay(500)
+        onAutoSave(items)
+    }
+
     val digits = query.filter(Char::isDigit)
     val people = remember(query, customers) {
         if (query.isBlank()) {
@@ -619,7 +649,11 @@ fun GoodSheet(
     }
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            val items = buildItems()
+            if (items.isNotEmpty()) onAutoSave(items)
+            onDismiss()
+        },
         sheetState = sheetState,
         containerColor = colors.surface,
         shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
@@ -848,25 +882,11 @@ fun GoodSheet(
                     label = "پاشەکەوتکردن",
                     onClick = {
                         focus.clearFocus()
-                        val cleaned = rows.filter { it.title.isNotBlank() }
-                        if (cleaned.isEmpty()) {
+                        val items = buildItems()
+                        if (items.isEmpty()) {
                             error = "لانیکەم ناوێکی کاڵا بنووسە"
                         } else {
-                            val now = System.currentTimeMillis()
-                            onSave(
-                                cleaned.map { draft ->
-                                    GoodItem(
-                                        id = draft.id,
-                                        title = draft.title.trim(),
-                                        quantity = draft.quantity.coerceAtLeast(1),
-                                        note = note.trim(),
-                                        customerId = customerId,
-                                        customerName = customerName,
-                                        createdAt = if (draft.createdAt > 0) draft.createdAt else now,
-                                        updatedAt = now,
-                                    )
-                                },
-                            )
+                            onSave(items)
                         }
                     },
                     icon = AppIcons.check(),

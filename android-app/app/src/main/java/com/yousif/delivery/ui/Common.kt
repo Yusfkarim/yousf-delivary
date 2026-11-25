@@ -70,7 +70,7 @@ fun SectionHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 4.dp, end = 4.dp, top = 18.dp, bottom = 8.dp),
+            .padding(start = 4.dp, end = 4.dp, top = 12.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -568,7 +568,7 @@ fun Segmented(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(42.dp)
+                    .height(38.dp)
                     .shadow(
                         if (selected) 9.dp else 0.dp,
                         RoundedCornerShape(50),
