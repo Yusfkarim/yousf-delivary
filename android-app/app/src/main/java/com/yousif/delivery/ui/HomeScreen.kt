@@ -4,6 +4,17 @@ import android.Manifest
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,6 +54,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -174,6 +188,7 @@ fun HomeScreen(viewModel: MainViewModel) {
     var routeTarget by remember { mutableStateOf<Customer?>(null) }
     var deleteTarget by remember { mutableStateOf<Customer?>(null) }
     var profileTarget by remember { mutableStateOf<Customer?>(null) }
+    var lastProfile by remember { mutableStateOf<Customer?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var showGoodSheet by remember { mutableStateOf(false) }
     var editingGood by remember { mutableStateOf<com.yousif.delivery.data.GoodItem?>(null) }
@@ -305,11 +320,13 @@ fun HomeScreen(viewModel: MainViewModel) {
                         ) {
                             if (syncIssue != null) {
                                 item {
+                                    Box(Modifier.animateItem()) {
                                     ServerNotice(
                                         code = syncIssue ?: 0,
                                         onRetry = { viewModel.retrySync() },
                                         onFixAddress = { viewModel.resetServerAddress() },
                                     )
+                                    }
                                 }
                             }
                             if (activeVisible.isEmpty()) {
@@ -404,8 +421,18 @@ fun HomeScreen(viewModel: MainViewModel) {
 
             // «کردنەوە» shows the person; editing stays behind the pencil.
             // The live row is used so a saved edit shows up immediately.
-            profileTarget?.let { target ->
-                val person = everyone.firstOrNull { row -> row.id == target.id } ?: target
+            val liveProfile = profileTarget?.let { target ->
+                everyone.firstOrNull { row -> row.id == target.id } ?: target
+            }
+            LaunchedEffect(liveProfile) {
+                if (liveProfile != null) lastProfile = liveProfile
+            }
+            AnimatedVisibility(
+                visible = liveProfile != null,
+                enter = fadeIn(tween(180)) + slideInVertically(tween(220)) { height -> height / 7 },
+                exit = fadeOut(tween(140)) + slideOutVertically(tween(180)) { height -> height / 9 },
+            ) {
+                (liveProfile ?: lastProfile)?.let { person ->
                 CustomerProfile(
                     customer = person,
                     goods = goods,
@@ -426,6 +453,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                         deleteTarget = person
                     },
                 )
+                }
             }
         }
     }
@@ -551,66 +579,97 @@ private fun HomeHeader(
             .fillMaxWidth()
             .background(colors.background)
             .statusBarsPadding()
-            .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 8.dp),
+            .padding(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            SoftIconButton(
-                icon = AppIcons.bell(),
-                onClick = onBell,
-                contentDescription = "ڕێکخستن",
-                tint = colors.brandDeep,
-            )
+        // One compact glass bar — the map keeps the rest of the screen.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp)
+                .shadow(
+                    elevation = 10.dp,
+                    shape = RoundedCornerShape(22.dp),
+                    clip = false,
+                    ambientColor = Color(0x1FA0785A),
+                    spotColor = Color(0x1FA0785A),
+                )
+                .clip(RoundedCornerShape(22.dp))
+                .background(
+                    if (colors.isDark) {
+                        Brush.linearGradient(listOf(Color(0xFF2C221C), Color(0xFF1C1613)))
+                    } else {
+                        Brush.linearGradient(listOf(Color(0xFFFFFFFF), Color(0xFFFFF4EA)))
+                    },
+                )
+                .border(
+                    1.dp,
+                    if (colors.isDark) Color(0xFF40322A) else Color(0xFFFFFFFF),
+                    RoundedCornerShape(22.dp),
+                )
+                .padding(horizontal = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Notification / settings — its own raised orange glass button.
+            Box {
+                BellButton(onClick = onBell)
+                if (pending > 0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(15.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(colors.brand)
+                            .border(1.5.dp, Color.White, RoundedCornerShape(50)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = TextUtils.toKurdish(pending.toString()),
+                            color = colors.onBrand,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
+
             Spacer(Modifier.weight(1f))
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                BrandBadge(size = 36.dp)
-                Spacer(Modifier.height(4.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ShiningBrand(size = 30.dp)
+                Spacer(Modifier.width(8.dp))
                 Text(
                     text = "یوسف دلیڤەری",
                     color = colors.brand,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 0.6.sp,
+                    maxLines = 1,
                 )
             }
+
             Spacer(Modifier.weight(1f))
+
             Box {
                 SoftIconButton(
                     icon = AppIcons.sync(),
                     onClick = onSync,
                     contentDescription = "هاوکاتکردن",
                     tint = colors.brand,
+                    size = 40.dp,
                 )
-                if (pending > 0 && !syncing) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .size(18.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(colors.brand)
-                            .border(2.dp, colors.background, RoundedCornerShape(50)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = TextUtils.toKurdish(pending.toString()),
-                            color = colors.onBrand,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                }
                 if (syncing) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .size(18.dp)
+                            .size(15.dp)
                             .clip(RoundedCornerShape(50))
                             .background(colors.surface)
-                            .border(2.dp, colors.background, RoundedCornerShape(50)),
+                            .border(1.5.dp, Color.White, RoundedCornerShape(50)),
                         contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(11.dp),
-                            strokeWidth = 1.5.dp,
+                            modifier = Modifier.size(9.dp),
+                            strokeWidth = 1.4.dp,
                             color = colors.brand,
                         )
                     }
@@ -618,50 +677,127 @@ private fun HomeHeader(
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(6.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(colors.surface)
-                    .border(1.dp, colors.brand.copy(alpha = 0.35f), RoundedCornerShape(50))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                GpsDot(active = gpsActive)
-                Spacer(Modifier.width(7.dp))
-                Text(
-                    text = if (gpsActive) "GPS چالاکە" else "چاوەڕوانی GPS",
-                    color = colors.textSecondary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
+            MiniChip(
+                text = if (gpsActive) "GPS چالاکە" else "چاوەڕوانی GPS",
+                leading = { GpsDot(active = gpsActive) },
+                tint = colors.textSecondary,
+                bold = false,
+            )
             Spacer(Modifier.weight(1f))
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(colors.surface)
-                    .border(1.dp, colors.brand.copy(alpha = 0.35f), RoundedCornerShape(50))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    AppIcons.clock(),
-                    contentDescription = null,
-                    tint = colors.brandDeep,
-                    modifier = Modifier.size(14.dp),
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = "ئەمڕۆ",
-                    color = colors.brandDeep,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
+            MiniChip(
+                text = "ئەمڕۆ",
+                leading = {
+                    Icon(
+                        AppIcons.clock(),
+                        contentDescription = null,
+                        tint = colors.brandDeep,
+                        modifier = Modifier.size(13.dp),
+                    )
+                },
+                tint = colors.brandDeep,
+                bold = true,
+            )
         }
+    }
+}
+
+/** Compact pill used for the GPS / today chips under the header bar. */
+@Composable
+private fun MiniChip(
+    text: String,
+    leading: @Composable () -> Unit,
+    tint: Color,
+    bold: Boolean,
+) {
+    val colors = LocalAppColors.current
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(colors.surface)
+            .border(1.dp, colors.brand.copy(alpha = 0.30f), RoundedCornerShape(50))
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        leading()
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = text,
+            color = tint,
+            fontSize = 11.5.sp,
+            fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium,
+        )
+    }
+}
+
+/** The bell: a raised orange-glass button that cannot be missed. */
+@Composable
+private fun BellButton(onClick: () -> Unit) {
+    val colors = LocalAppColors.current
+    val shape = RoundedCornerShape(16.dp)
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .shadow(8.dp, shape, clip = false, ambientColor = Color(0x40F97316), spotColor = Color(0x40F97316))
+            .clip(shape)
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        colors.brand.copy(alpha = 0.16f),
+                        colors.brand.copy(alpha = 0.04f),
+                    ),
+                ),
+            )
+            .border(1.2.dp, colors.brand.copy(alpha = 0.45f), shape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = AppIcons.bell(),
+            contentDescription = "ئاگادارکردنەوە",
+            tint = colors.brandDeep,
+            modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+/** Brand badge with a slow light sweep — cheap: one animation on the screen. */
+@Composable
+private fun ShiningBrand(size: androidx.compose.ui.unit.Dp) {
+    val transition = rememberInfiniteTransition(label = "brand")
+    val sweep by transition.animateFloat(
+        initialValue = -0.6f,
+        targetValue = 1.6f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2600),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "sweep",
+    )
+    Box {
+        BrandBadge(size = size)
+        Box(
+            modifier = Modifier
+                .size(size)
+                .clip(RoundedCornerShape(size / 3))
+                .drawWithContent {
+                    drawContent()
+                    val w = this.size.width.toFloat()
+                    drawRect(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.35f),
+                                Color.Transparent,
+                            ),
+                            startX = sweep * w,
+                            endX = sweep * w + w * 0.5f,
+                        ),
+                    )
+                },
+        )
     }
 }
 
@@ -704,8 +840,8 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
         shape = RoundedCornerShape(18.dp),
         textStyle = TextStyle(fontSize = 14.sp, color = colors.textPrimary),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = colors.surface,
-            unfocusedContainerColor = colors.surface,
+            focusedContainerColor = if (colors.isDark) Color(0xFF241D19) else Color(0xFFFFFFFF),
+            unfocusedContainerColor = if (colors.isDark) Color(0xFF221B17) else Color(0xFFFFFBF7),
             focusedBorderColor = colors.brand.copy(alpha = 0.55f),
             unfocusedBorderColor = colors.border,
             cursorColor = colors.brand,
@@ -729,8 +865,14 @@ private fun HomeBottomBar(
             .fillMaxWidth()
             .shadow(14.dp, shape, clip = false, ambientColor = Color(0x22A0785A), spotColor = Color(0x22A0785A))
             .clip(shape)
-            .background(colors.surface)
-            .border(1.dp, colors.border, shape)
+            .background(
+                if (colors.isDark) {
+                    Brush.linearGradient(listOf(Color(0xFF2C221C), Color(0xFF1C1613)))
+                } else {
+                    Brush.linearGradient(listOf(Color(0xFFFFFFFF), Color(0xFFFFF4EA)))
+                },
+            )
+            .border(1.dp, if (colors.isDark) Color(0xFF40322A) else Color(0xFFFFFFFF), shape)
             .padding(start = 8.dp, end = 8.dp, top = 7.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -781,6 +923,11 @@ private fun NavItem(
     onClick: () -> Unit,
 ) {
     val colors = LocalAppColors.current
+    val highlight by animateFloatAsState(
+        targetValue = if (selected) 1f else 0f,
+        animationSpec = tween(220),
+        label = "navHighlight",
+    )
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(50))
@@ -791,8 +938,13 @@ private fun NavItem(
         Box(
             modifier = Modifier
                 .size(38.dp)
+                .graphicsLayer {
+                    val scale = 0.92f + 0.08f * highlight
+                    scaleX = scale
+                    scaleY = scale
+                }
                 .clip(RoundedCornerShape(50))
-                .background(if (selected) colors.brandSoft else Color.Transparent),
+                .background(colors.brandSoft.copy(alpha = highlight)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(

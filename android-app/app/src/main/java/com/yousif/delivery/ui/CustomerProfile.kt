@@ -1,7 +1,10 @@
 package com.yousif.delivery.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,9 +23,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,10 +46,9 @@ import com.yousif.delivery.util.TextUtils
 /**
  * «پرۆفایلی کەس» — a **read-only** page for one customer / shop.
  *
- * This is what «کردنەوە» on the map card opens: the whole person on one quiet
- * screen (phones, address, map preview, goods). Editing only happens when the
- * driver presses the pencil, so opening a pin can never change a record by
- * accident.
+ * One clean column: identity, phones, address, goods. Nothing overlaps, every
+ * action sits on its own line, and editing only happens from the pencil — so
+ * opening a pin can never change a record by accident.
  */
 @Composable
 fun CustomerProfile(
@@ -64,44 +70,66 @@ fun CustomerProfile(
 
     BackHandler { onBack() }
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(colors.background),
     ) {
+        /* ------------------------------------------------------------ top bar */
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SoftIconButton(
+                icon = AppIcons.chevronEnd(),
+                onClick = onBack,
+                contentDescription = "گەڕانەوە",
+                size = 40.dp,
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 10.dp),
+            ) {
+                Text(
+                    text = "پرۆفایل",
+                    color = colors.textPrimary,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+                Text(
+                    text = if (customer.isShop) "فرۆشگا" else "کڕیار",
+                    color = colors.textMuted,
+                    fontSize = 11.sp,
+                )
+            }
+            SoftIconButton(
+                icon = AppIcons.edit(),
+                onClick = onEdit,
+                contentDescription = "دەستکاریکردن",
+                size = 40.dp,
+                tint = colors.brandDeep,
+            )
+        }
+
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 40.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 36.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            /* ------------------------------------------------ top bar + person */
+            /* ---------------------------------------------------------- identity */
             item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    SoftIconButton(
-                        icon = AppIcons.chevronEnd(),
-                        onClick = onBack,
-                        contentDescription = "گەڕانەوە",
-                        size = 42.dp,
-                    )
-                    Spacer(Modifier.weight(1f))
-                    SoftIconButton(
-                        icon = AppIcons.edit(),
-                        onClick = onEdit,
-                        contentDescription = "دەستکاریکردن",
-                        size = 42.dp,
-                        tint = colors.brandDeep,
-                    )
-                }
-            }
-
-            item {
-                GlassCard(padding = 16.dp, radius = 26.dp) {
+                GlassCard(padding = 14.dp, radius = 24.dp) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .size(58.dp)
-                                .clip(RoundedCornerShape(19.dp))
-                                .background(if (customer.isShop) colors.successSoft else colors.brandSoft),
+                                .size(54.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(
+                                    if (customer.isShop) colors.successSoft else colors.brandSoft,
+                                ),
                             contentAlignment = Alignment.Center,
                         ) {
                             if (customer.isShop) {
@@ -109,13 +137,13 @@ fun CustomerProfile(
                                     AppIcons.store(),
                                     contentDescription = null,
                                     tint = colors.successDeep,
-                                    modifier = Modifier.size(28.dp),
+                                    modifier = Modifier.size(26.dp),
                                 )
                             } else {
                                 Text(
                                     text = TextUtils.initials(customer.name),
                                     color = colors.brandDeep,
-                                    fontSize = 20.sp,
+                                    fontSize = 19.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                 )
                             }
@@ -125,13 +153,13 @@ fun CustomerProfile(
                             Text(
                                 text = customer.name,
                                 color = colors.textPrimary,
-                                fontSize = 19.sp,
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 maxLines = 3,
                                 overflow = TextOverflow.Ellipsis,
                             )
-                            Spacer(Modifier.height(6.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Spacer(Modifier.height(7.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 GlassChip(
                                     text = if (customer.isShop) "فرۆشگا" else "کڕیار",
                                     icon = if (customer.isShop) AppIcons.store() else AppIcons.user(),
@@ -139,7 +167,6 @@ fun CustomerProfile(
                                     container = if (customer.isShop) colors.successSoft else colors.brandSoft,
                                 )
                                 if (distanceMeters != null) {
-                                    Spacer(Modifier.width(7.dp))
                                     GlassChip(
                                         text = TextUtils.distance(distanceMeters),
                                         icon = AppIcons.locate(),
@@ -153,61 +180,35 @@ fun CustomerProfile(
                 }
             }
 
-            /* ---------------------------------------------------------- phones */
-            if (customer.allPhones.any { it.isNotBlank() }) {
+            /* ------------------------------------------------------------ phones */
+            val phones = buildList {
+                add(Triple(customer.primaryPhone, customer.hasWhatsapp, customer.hasViber))
+                customer.extraPhones.forEach { extra ->
+                    add(Triple(extra.number, extra.hasWhatsapp, extra.hasViber))
+                }
+            }.filter { it.first.isNotBlank() }
+
+            if (phones.isNotEmpty()) {
                 item {
                     GlassCard(padding = 14.dp, radius = 24.dp) {
-                        Label("ژمارەکان", AppIcons.call())
-                        Spacer(Modifier.height(8.dp))
-                        val flags = buildList {
-                            add(customer.primaryPhone to (customer.hasWhatsapp to customer.hasViber))
-                            customer.extraPhones.forEach { add(it.number to (it.hasWhatsapp to it.hasViber)) }
-                        }.filter { it.first.isNotBlank() }
-
-                        flags.forEachIndexed { index, entry ->
+                        SectionLabel("ژمارەکان", AppIcons.call())
+                        Spacer(Modifier.height(6.dp))
+                        phones.forEachIndexed { index, phone ->
                             if (index > 0) DividerLine()
-                            val (number, apps) = entry
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 7.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text = PhoneUtils.pretty(number),
-                                    color = colors.textPrimary,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                                Spacer(Modifier.weight(1f))
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    MiniAction(AppIcons.call(), "پەیوەندی", colors.brandDeep, colors.brandSoft) {
-                                        IntentUtils.dial(context, number)
-                                    }
-                                    if (apps.first) {
-                                        MiniAction(
-                                            AppIcons.whatsapp(),
-                                            "واتسئەپ",
-                                            colors.successDeep,
-                                            colors.successSoft,
-                                        ) { IntentUtils.whatsapp(context, number) }
-                                    }
-                                    if (apps.second) {
-                                        MiniAction(AppIcons.viber(), "ڤایبەر", colors.brandDeep, colors.brandSoft) {
-                                            IntentUtils.viber(context, number)
-                                        }
-                                    }
-                                }
-                            }
+                            PhoneBlock(
+                                number = phone.first,
+                                whatsapp = phone.second,
+                                viber = phone.third,
+                            )
                         }
                     }
                 }
             }
 
-            /* --------------------------------------------------------- address */
+            /* ----------------------------------------------------------- address */
             item {
                 GlassCard(padding = 14.dp, radius = 24.dp) {
-                    Label("شوێن", AppIcons.pin())
+                    SectionLabel("شوێن", AppIcons.pin())
                     if (customer.hasCoordinates) {
                         Spacer(Modifier.height(10.dp))
                         MapThumb(
@@ -215,15 +216,22 @@ fun CustomerProfile(
                             longitude = customer.longitude,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(150.dp)
+                                .height(146.dp)
                                 .clip(RoundedCornerShape(18.dp))
                                 .clickable { onOpenMap() },
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            text = TextUtils.coordinates(customer.latitude, customer.longitude),
+                            text = TextUtils.coordinatesDisplay(customer.latitude, customer.longitude),
                             color = colors.textSecondary,
                             fontSize = 11.5.sp,
+                        )
+                    } else {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = "شوێن دیاری نەکراوە",
+                            color = colors.textMuted,
+                            fontSize = 12.sp,
                         )
                     }
                     if (customer.addressNote.isNotBlank()) {
@@ -258,12 +266,12 @@ fun CustomerProfile(
                 }
             }
 
-            /* ------------------------------------------------------------ goods */
+            /* ------------------------------------------------------------- goods */
             if (mine.isNotEmpty()) {
                 item {
                     GlassCard(padding = 14.dp, radius = 24.dp) {
-                        Label("کاڵاکان", AppIcons.packageBox())
-                        Spacer(Modifier.height(6.dp))
+                        SectionLabel("کاڵاکان", AppIcons.packageBox())
+                        Spacer(Modifier.height(4.dp))
                         mine.forEachIndexed { index, item ->
                             if (index > 0) DividerLine()
                             Row(
@@ -317,7 +325,7 @@ fun CustomerProfile(
                 }
             }
 
-            /* ----------------------------------------------------------- delete */
+            /* ------------------------------------------------------------ delete */
             item {
                 PillButton(
                     label = "سڕینەوەی ئەم کەسە",
@@ -334,8 +342,90 @@ fun CustomerProfile(
     }
 }
 
+/* --------------------------------------------------------------- building blocks */
+
+/** Number on its own line, actions on the next one — never squeezed. */
 @Composable
-private fun Label(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+private fun PhoneBlock(number: String, whatsapp: Boolean, viber: Boolean) {
+    val colors = LocalAppColors.current
+    val context = LocalContext.current
+
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Text(
+            text = PhoneUtils.pretty(number),
+            color = colors.textPrimary,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.ExtraBold,
+        )
+        Spacer(Modifier.height(7.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            ActionPill(
+                icon = AppIcons.call(),
+                label = "پەیوەندی",
+                tint = Color(0xFFFFFFFF),
+                container = colors.success,
+                modifier = Modifier.weight(1f),
+            ) { IntentUtils.dial(context, number) }
+            if (whatsapp) {
+                ActionPill(
+                    icon = AppIcons.whatsapp(),
+                    label = "واتسئەپ",
+                    tint = Color(0xFF0B7A4B),
+                    container = colors.successSoft,
+                    modifier = Modifier.weight(1f),
+                ) { IntentUtils.whatsapp(context, number) }
+            }
+            if (viber) {
+                ActionPill(
+                    icon = AppIcons.viber(),
+                    label = "ڤایبەر",
+                    tint = colors.brandDeep,
+                    container = colors.brandSoft,
+                    modifier = Modifier.weight(1f),
+                ) { IntentUtils.viber(context, number) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActionPill(
+    icon: ImageVector,
+    label: String,
+    tint: Color,
+    container: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = modifier
+            .height(34.dp)
+            .clip(RoundedCornerShape(50))
+            .background(container)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            icon,
+            contentDescription = label,
+            tint = tint,
+            modifier = Modifier.size(14.dp),
+        )
+        Spacer(Modifier.width(5.dp))
+        Text(
+            text = label,
+            color = tint,
+            fontSize = 10.5.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String, icon: ImageVector) {
     val colors = LocalAppColors.current
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
@@ -343,7 +433,7 @@ private fun Label(text: String, icon: androidx.compose.ui.graphics.vector.ImageV
                 .width(4.dp)
                 .height(16.dp)
                 .clip(RoundedCornerShape(50))
-                .background(colors.brand),
+                .background(Brush.verticalGradient(listOf(colors.brand, colors.brandDeep))),
         )
         Spacer(Modifier.width(7.dp))
         Icon(
@@ -358,39 +448,6 @@ private fun Label(text: String, icon: androidx.compose.ui.graphics.vector.ImageV
             color = colors.textPrimary,
             fontSize = 14.sp,
             fontWeight = FontWeight.ExtraBold,
-        )
-    }
-}
-
-/** A compact round action used inside the phone rows. */
-@Composable
-private fun MiniAction(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    tint: androidx.compose.ui.graphics.Color,
-    container: androidx.compose.ui.graphics.Color,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(container)
-            .clickable { onClick() }
-            .padding(horizontal = 10.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            icon,
-            contentDescription = label,
-            tint = tint,
-            modifier = Modifier.size(14.dp),
-        )
-        Spacer(Modifier.width(4.dp))
-        Text(
-            text = label,
-            color = tint,
-            fontSize = 10.5.sp,
-            fontWeight = FontWeight.Bold,
         )
     }
 }

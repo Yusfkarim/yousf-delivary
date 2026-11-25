@@ -97,28 +97,28 @@ fun MapScreen(
             if (shown != null) {
                 val isShop = shown.isShop
                 val distance = distanceOf(shown)
-                GlassCard(padding = 12.dp, radius = 24.dp) {
+                GlassCard(padding = 10.dp, radius = 22.dp) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .size(38.dp)
-                                .clip(RoundedCornerShape(13.dp))
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(11.dp))
                                 .background(colors.brandSoft),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
                                 text = TextUtils.initials(shown.name),
                                 color = colors.brandDeep,
-                                fontSize = 15.sp,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.ExtraBold,
                             )
                         }
-                        Spacer(Modifier.width(10.dp))
+                        Spacer(Modifier.width(9.dp))
                         Column(Modifier.weight(1f)) {
                             Text(
                                 text = shown.name,
                                 color = colors.textPrimary,
-                                fontSize = 15.sp,
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -158,7 +158,7 @@ fun MapScreen(
                             }
                         }
                     }
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         PillButton(
                             label = "کردنەوە",
@@ -167,8 +167,8 @@ fun MapScreen(
                             container = colors.brand,
                             contentColor = colors.onBrand,
                             modifier = Modifier.weight(1f),
-                            height = 44.dp,
-                            fontSize = 13,
+                            height = 40.dp,
+                            fontSize = 12.5,
                         )
                         PillButton(
                             label = "ڕێگا",
@@ -176,8 +176,8 @@ fun MapScreen(
                             icon = AppIcons.route(),
                             container = colors.brandSoft,
                             contentColor = colors.brandDeep,
-                            modifier = Modifier.width(104.dp),
-                            height = 44.dp,
+                            modifier = Modifier.width(96.dp),
+                            height = 40.dp,
                             fontSize = 13,
                         )
                     }
