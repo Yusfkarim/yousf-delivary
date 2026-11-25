@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -357,30 +358,27 @@ private fun PhoneBlock(number: String, whatsapp: Boolean, viber: Boolean) {
             fontSize = 15.sp,
             fontWeight = FontWeight.ExtraBold,
         )
-        Spacer(Modifier.height(7.dp))
+        Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            ActionPill(
+            ActionTile(
                 icon = AppIcons.call(),
                 label = "پەیوەندی",
-                tint = Color(0xFFFFFFFF),
-                container = colors.success,
+                brand = colors.brand,
                 modifier = Modifier.weight(1f),
             ) { IntentUtils.dial(context, number) }
             if (whatsapp) {
-                ActionPill(
+                ActionTile(
                     icon = AppIcons.whatsapp(),
                     label = "واتسئەپ",
-                    tint = Color(0xFF0B7A4B),
-                    container = colors.successSoft,
+                    brand = WhatsAppGreen,
                     modifier = Modifier.weight(1f),
                 ) { IntentUtils.whatsapp(context, number) }
             }
             if (viber) {
-                ActionPill(
+                ActionTile(
                     icon = AppIcons.viber(),
                     label = "ڤایبەر",
-                    tint = colors.brandDeep,
-                    container = colors.brandSoft,
+                    brand = ViberPurple,
                     modifier = Modifier.weight(1f),
                 ) { IntentUtils.viber(context, number) }
             }
@@ -388,35 +386,53 @@ private fun PhoneBlock(number: String, whatsapp: Boolean, viber: Boolean) {
     }
 }
 
+/** Official brand colours, so the real logos read instantly. */
+private val WhatsAppGreen = Color(0xFF25D366)
+private val ViberPurple = Color(0xFF7360F2)
+
+/**
+ * One contact action: the real brand mark in a solid brand-coloured disc,
+ * with a quiet label underneath. Three of them sit side by side, equal width.
+ */
 @Composable
-private fun ActionPill(
+private fun ActionTile(
     icon: ImageVector,
     label: String,
-    tint: Color,
-    container: Color,
+    brand: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    Row(
+    val colors = LocalAppColors.current
+    val shape = RoundedCornerShape(16.dp)
+    Column(
         modifier = modifier
-            .height(34.dp)
-            .clip(RoundedCornerShape(50))
-            .background(container)
+            .height(57.dp)
+            .clip(shape)
+            .background(if (colors.isDark) brand.copy(alpha = 0.16f) else brand.copy(alpha = 0.09f))
+            .border(1.dp, brand.copy(alpha = 0.22f), shape)
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
+            .padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
-        Icon(
-            icon,
-            contentDescription = label,
-            tint = tint,
-            modifier = Modifier.size(14.dp),
-        )
-        Spacer(Modifier.width(5.dp))
+        Box(
+            modifier = Modifier
+                .size(25.dp)
+                .clip(CircleShape)
+                .background(brand),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                icon,
+                contentDescription = label,
+                tint = Color.White,
+                modifier = Modifier.size(15.dp),
+            )
+        }
+        Spacer(Modifier.height(4.dp))
         Text(
             text = label,
-            color = tint,
+            color = colors.textPrimary,
             fontSize = 10.5.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1,

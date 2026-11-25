@@ -1,13 +1,17 @@
 name: Android Release
 
+# Builds the signed release APK with the exact same pipeline that produces the
+# Vercel download (deploy/apk/build-apk.sh → same keystore, same signature) and
+# attaches it to a GitHub Release, so every version lives in «Releases».
+
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*'
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version name (optional, defaults to versionName in build.gradle.kts)'
+      tag:
+        description: 'Tag / ref to build and publish (e.g. v1.6.9). Empty = current ref.'
         required: false
         default: ''
 
@@ -22,14 +26,22 @@ jobs:
   build:
     name: Build & publish APK
     runs-on: ubuntu-latest
-    env:
-      KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'yousif' }}
-      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'yousif12345' }}
-      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'yousif12345' }}
+    timeout-minutes: 90
 
     steps:
+      - name: Resolve ref
+        id: ref
+        run: |
+          REF="${{ github.event.inputs.tag }}"
+          if [ -z "$REF" ]; then REF="${GITHUB_REF_NAME}"; fi
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          echo "Building: $REF"
+
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.ref.outputs.ref }}
+          fetch-depth: 1
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -37,103 +49,68 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.11.1'
-
-      - name: Install Android platform
-        run: |
-          yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" > /dev/null
-
-      - name: Restore signing keystore
-        uses: actions/cache@v4
-        with:
-          path: android-app/keystore
-          key: yousif-release-keystore-v1
-
-      - name: Prepare signing keystore
-        working-directory: android-app
-        run: |
-          mkdir -p keystore
-          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "Using keystore from repository secrets"
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore/yousif-release.jks
-          elif [ ! -f keystore/yousif-release.jks ]; then
-            echo "Generating a persistent signing keystore"
-            keytool -genkeypair -v \
-              -keystore keystore/yousif-release.jks \
-              -alias "$KEY_ALIAS" \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -storetype PKCS12 \
-              -storepass "$KEYSTORE_PASSWORD" \
-              -keypass "$KEY_PASSWORD" \
-              -dname "CN=Yousif Delivery, OU=Courier, O=Yousif, L=Sulaymaniyah, C=IQ"
-          fi
-          ls -l keystore
-
+      # The script installs its own JDK / Gradle / Android SDK into ~/tools,
+      # restores the release keystore from android-app/release-keystore.b64 and
+      # writes apk-out/YousifDelivery-v<version>.apk (+ .sha256).
       - name: Build release APK
-        working-directory: android-app
-        run: gradle :app:assembleRelease --no-daemon --stacktrace
+        run: bash deploy/apk/build-apk.sh
 
-      - name: Resolve version
-        id: version
-        working-directory: android-app
+      - name: Collect results
+        id: apk
         run: |
-          NAME_FROM_GRADLE=$(grep -m1 'versionName = ' app/build.gradle.kts | sed 's/.*versionName = "\(.*\)".*/\1/')
-          CODE_FROM_GRADLE=$(grep -m1 'versionCode = ' app/build.gradle.kts | sed 's/.*versionCode = \(.*\)/\1/')
-          VERSION_NAME="$NAME_FROM_GRADLE"
-          if [ "${{ github.event_name }}" = "push" ]; then
-            VERSION_NAME="${GITHUB_REF_NAME#v}"
-          elif [ -n "${{ github.event.inputs.version }}" ]; then
-            VERSION_NAME="${{ github.event.inputs.version }}"
-          fi
-          echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
-          echo "code=$CODE_FROM_GRADLE" >> "$GITHUB_OUTPUT"
-          echo "Version: $VERSION_NAME ($CODE_FROM_GRADLE)"
-
-      - name: Collect APK
-        run: |
-          mkdir -p dist
-          cp android-app/app/build/outputs/apk/release/app-release.apk \
-             "dist/YousifDelivery-v${{ steps.version.outputs.name }}.apk"
-          ls -lh dist
+          NAME=$(grep -m1 'versionName = ' android-app/app/build.gradle.kts | sed 's/.*versionName = "\(.*\)".*/\1/')
+          CODE=$(grep -m1 'versionCode = ' android-app/app/build.gradle.kts | sed 's/.*versionCode = \(.*\)/\1/')
+          APK="apk-out/YousifDelivery-v${NAME}.apk"
+          [ -f "$APK" ] || { echo "APK missing: $APK"; ls -l apk-out; exit 1; }
+          SHA=$(sha256sum "$APK" | cut -d' ' -f1)
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          ls -lh apk-out
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: YousifDelivery-v${{ steps.version.outputs.name }}
-          path: dist/*.apk
+          name: YousifDelivery-v${{ steps.apk.outputs.name }}
+          path: |
+            apk-out/*.apk
+            apk-out/*.sha256
           if-no-files-found: error
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.event_name == 'push' && github.ref_name || format('v{0}', steps.version.outputs.name) }}
-          name: یوسف دلیڤەری v${{ steps.version.outputs.name }}
-          files: dist/*.apk
-          generate_release_notes: false
-          body: |
-            ## یوسف دلیڤەری v${{ steps.version.outputs.name }} (${{ steps.version.outputs.code }})
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.ref.outputs.ref }}
+          VN: ${{ steps.apk.outputs.name }}
+          VC: ${{ steps.apk.outputs.code }}
+          SHA: ${{ steps.apk.outputs.sha }}
+        run: |
+          set -euo pipefail
+          NOTES=$(mktemp)
+          cat > "$NOTES" <<MD
+          ## یوسف دلیڤەری v${VN} (${VC})
 
-            فایلی دامەزراندن: **YousifDelivery-v${{ steps.version.outputs.name }}.apk**
+          فایلی دامەزراندن: **YousifDelivery-v${VN}.apk**
 
-            ### چی لەم وەشانەدا هەیە
-            - ئەپی ناتیڤی کوردی (Kotlin + Jetpack Compose، RTL) بۆ شۆفێرێکی تاک
-            - قفڵی وشەی نهێنی (`x-app-password`) لەسەر هەموو داواکارییەکانی سێرڤەر
-            - هەڵگرتنی ناوخۆیی بە Room + هاوکاتکردنی خۆکار بە WorkManager
-            - نەخشەی OpenStreetMap (osmdroid) بێ هیچ API Key
-            - Haversine دووری، GPS ڕاستەقینە، پەیوەندی / واتسئەپ / ڤایبەر
-            - پاڵپشتی `google.navigation:` بۆ Google Maps
+          ```
+          sha256: ${SHA}
+          ```
 
-            ### دامەزراندن
-            1. فایلی APK دابەزێنە
-            2. لە مۆبایل «ڕێگەدان بە سەرچاوەی نەناسراو» چالاک بکە
-            3. دامەزراندن → وشەی نهێنی → چوونەژوورەوە
+          ### دامەزراندن
+          1. فایلی APK دابەزێنە
+          2. لە مۆبایل «ڕێگەدان بە سەرچاوەی نەناسراو» چالاک بکە
+          3. دامەزراندن → وشەی نهێنی → چوونەژوورەوە
 
-            > ئەگەر وەشانێکی کۆنت دامەزراندووە، هەمان keystore بەکارهاتووە،
-            > بۆیە دەتوانیت بەسەرەوە دایبمەزرێنیت بەبێ سڕینەوەی داتا.
+          > هەمان keystore بەکارهاتووە، بۆیە بەسەرەوە دەبێتەوە بەبێ سڕینەوەی داتا.
+          MD
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "release exists — uploading assets"
+            gh release upload "$TAG" apk-out/*.apk apk-out/*.sha256 --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" apk-out/*.apk apk-out/*.sha256 \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "یوسف دلیڤەری ${TAG}" \
+              --notes-file "$NOTES" \
+              --latest
+          fi
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets

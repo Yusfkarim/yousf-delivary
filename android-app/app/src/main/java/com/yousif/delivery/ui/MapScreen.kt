@@ -168,7 +168,7 @@ fun MapScreen(
                             contentColor = colors.onBrand,
                             modifier = Modifier.weight(1f),
                             height = 40.dp,
-                            fontSize = 12.5,
+                            fontSize = 13,
                         )
                         PillButton(
                             label = "ڕێگا",

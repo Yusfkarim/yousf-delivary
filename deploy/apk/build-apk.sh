@@ -150,7 +150,6 @@ cat > "$OUT/index.html" <<HTML
 <h1>یوسف دلیڤەری</h1>
 <p>وەشانی ${VN} (${VC}) — APK ی ئەندرۆید</p>
 <a href="./${NAME}" download>داگرتنی ئەپەکە (${NAME})</a>
-<small>وشەی نهێنی: 12345678rk</small>
 </div></body></html>
 HTML
 
