@@ -10,6 +10,7 @@ import com.yousif.delivery.AppGraph
 import com.yousif.delivery.BuildConfig
 import com.yousif.delivery.data.Customer
 import com.yousif.delivery.data.CustomerDraft
+import com.yousif.delivery.data.ExtraPhone
 import com.yousif.delivery.data.GoodEntity
 import com.yousif.delivery.data.GoodItem
 import com.yousif.delivery.data.ImportReport
@@ -357,44 +358,127 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Saves goods that were typed together with a **new** owner: the phone number
-     * is matched against the saved people first, and only when nobody owns that
-     * number is a new customer created (locally now, on the server when online).
+     * Finds a saved person by the **last 9 digits** of any of his numbers.
+     * It looks at what the app already has in memory *and* in Room, so a person
+     * who is not synced yet can never be created a second time.
      */
-    fun saveGoodsForOwner(
+    private suspend fun findByPhone(raw: String): Customer? {
+        val digits = raw.filter(Char::isDigit).takeLast(9)
+        if (digits.length < 7) return null
+
+        fun matches(person: Customer): Boolean = person.allPhones.any { number ->
+            val saved = number.filter(Char::isDigit).takeLast(9)
+            saved.length >= 7 && saved == digits
+        }
+
+        allRecords.value.firstOrNull(::matches)?.let { return it }
+        return withContext(Dispatchers.IO) {
+            repository.allOnce().firstOrNull(::matches)
+        }
+    }
+
+    /**
+     * The **only** place that decides who a set of goods belongs to:
+     *
+     *  1. the typed number belongs to a saved person → the goods go to him,
+     *  2. a person is already picked and a new number is typed → the number is
+     *     stored on that person (never a second person),
+     *  3. nothing matches and nobody is picked → one new person is created,
+     *  4. no number at all → the goods keep their own «بێ کەس» cell.
+     *
+     * The goods are moved by their own id, so they can never be duplicated,
+     * split into two cells, or left behind while their number walks away.
+     */
+    fun commitGoods(
         items: List<GoodItem>,
-        ownerName: String,
-        ownerPhone: String,
+        pickedId: String?,
+        pickedName: String,
+        phone: String,
+        typedName: String,
         onDone: () -> Unit = {},
     ) {
         if (items.isEmpty()) return
         viewModelScope.launch {
-            val digits = ownerPhone.filter(Char::isDigit).takeLast(9)
-            val existing = allRecords.value.firstOrNull { person ->
-                digits.length >= 7 && person.allPhones.any { number ->
-                    number.filter(Char::isDigit).takeLast(9) == digits
+            val now = System.currentTimeMillis()
+            val digits = phone.filter(Char::isDigit)
+            val picked = pickedId?.let { id ->
+                allRecords.value.firstOrNull { it.id == id }
+                    ?: withContext(Dispatchers.IO) {
+                        repository.allOnce().firstOrNull { it.id == id }
+                    }
+            }
+            val matched = if (digits.length >= 7) findByPhone(phone) else null
+
+            var owner: Customer? = matched ?: picked
+
+            if (owner == null && digits.length >= 7) {
+                val fresh = Customer(
+                    id = UUID.randomUUID().toString(),
+                    name = typedName.trim().ifBlank { pickedName.trim() }.ifBlank { "کڕیاری نوێ" },
+                    primaryPhone = phone.trim(),
+                    syncStatus = SyncStatus.PENDING_UPSERT,
+                )
+                repository.save(fresh)
+                owner = fresh
+            } else {
+                val kept = owner
+                if (kept != null && digits.length >= 7) {
+                    val alreadySaved = kept.allPhones.any { number ->
+                        val saved = number.filter(Char::isDigit)
+                        saved.isNotEmpty() && saved == digits
+                    }
+                    if (!alreadySaved) {
+                        val updated = if (kept.primaryPhone.isBlank()) {
+                            kept.copy(
+                                primaryPhone = phone.trim(),
+                                updatedAt = now,
+                                syncStatus = SyncStatus.PENDING_UPSERT,
+                            )
+                        } else {
+                            kept.copy(
+                                extraPhones = kept.extraPhones + ExtraPhone(phone.trim()),
+                                updatedAt = now,
+                                syncStatus = SyncStatus.PENDING_UPSERT,
+                            )
+                        }
+                        repository.save(updated)
+                        owner = updated
+                    }
                 }
             }
-            val owner = existing ?: Customer(
-                id = UUID.randomUUID().toString(),
-                name = ownerName.trim().ifBlank { "کڕیاری نوێ" },
-                primaryPhone = ownerPhone.trim(),
-                syncStatus = SyncStatus.PENDING_UPSERT,
-            ).also { fresh -> repository.save(fresh) }
-            val now = System.currentTimeMillis()
-            goodDao.upsertAll(
-                items.map { item ->
-                    item.copy(
-                        customerId = owner.id,
-                        customerName = owner.name,
-                        ownerKey = "",
-                        updatedAt = now,
-                    ).toEntity()
-                },
-            )
+
+            val ownerNow = owner
+            withContext(Dispatchers.IO) {
+                goodDao.upsertAll(
+                    items.map { item ->
+                        item.copy(
+                            customerId = ownerNow?.id,
+                            customerName = ownerNow?.name,
+                            ownerKey = if (ownerNow == null) item.ownerKey else "",
+                            updatedAt = now,
+                        ).toEntity()
+                    },
+                )
+            }
             onDone()
         }
     }
+
+    /** «دانانی کەس» from inside a cell — the number belongs to that cell. */
+    fun assignGoodsOwner(
+        items: List<GoodItem>,
+        phone: String,
+        typedName: String,
+        currentCustomerId: String?,
+        onDone: () -> Unit = {},
+    ) = commitGoods(
+        items = items,
+        pickedId = currentCustomerId,
+        pickedName = "",
+        phone = phone,
+        typedName = typedName,
+        onDone = onDone,
+    )
 
     fun deleteGood(item: GoodItem) {
         viewModelScope.launch { goodDao.delete(item.id) }

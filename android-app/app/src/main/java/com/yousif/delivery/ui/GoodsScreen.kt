@@ -92,6 +92,7 @@ fun GoodsScreen(
     onBump: (GoodItem, Int) -> Unit,
     onRename: (GoodItem, String) -> Unit,
     onNoteChange: (List<GoodItem>, String) -> Unit,
+    onAssignOwner: (List<GoodItem>, String, String, String?) -> Unit,
     onDelete: (GoodItem) -> Unit,
     onAddFor: (String?, String?, String?) -> Unit,
     modifier: Modifier = Modifier,
@@ -156,9 +157,11 @@ fun GoodsScreen(
                 if (open.key == freshKey) freshKey = null
                 openKey = null
             },
+            people = people,
             onBump = onBump,
             onRename = onRename,
             onNoteChange = onNoteChange,
+            onAssignOwner = onAssignOwner,
             onDelete = { item -> deleteTarget = item },
             onAdd = {
                 /* Inside the cell: same person, or the very same «بێ کەس» cell. */
@@ -425,10 +428,12 @@ private fun OwnerCard(group: GoodGroup, onClick: () -> Unit, onDelete: () -> Uni
 @Composable
 private fun OwnerDetail(
     group: GoodGroup,
+    people: List<Customer>,
     onBack: () -> Unit,
     onBump: (GoodItem, Int) -> Unit,
     onRename: (GoodItem, String) -> Unit,
     onNoteChange: (List<GoodItem>, String) -> Unit,
+    onAssignOwner: (List<GoodItem>, String, String, String?) -> Unit,
     onDelete: (GoodItem) -> Unit,
     onAdd: () -> Unit,
     modifier: Modifier = Modifier,
@@ -484,6 +489,16 @@ private fun OwnerDetail(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 132.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            item {
+                OwnerBar(
+                    group = group,
+                    people = people,
+                    onAssign = { phone, name ->
+                        onAssignOwner(group.items, phone, name, group.customerId)
+                    },
+                )
+            }
+
             if (group.items.isEmpty()) {
                 item {
                     GlassEmptyState(
@@ -532,6 +547,157 @@ private fun OwnerDetail(
                 )
             }
         }
+    }
+}
+
+/**
+ * «کەس» of the cell — the number cell that sits **above the goods**.
+ *
+ * Type the number and press the tick: the person who owns that number is found
+ * and the whole cell moves to him; if the number is new, that person is created
+ * once, with the goods attached — never a second copy, never a split.
+ */
+@Composable
+private fun OwnerBar(
+    group: GoodGroup,
+    people: List<Customer>,
+    onAssign: (phone: String, name: String) -> Unit,
+) {
+    val colors = LocalAppColors.current
+    val focus = LocalFocusManager.current
+    val person = remember(group.customerId, people) {
+        people.firstOrNull { it.id == group.customerId }
+    }
+    val savedPhone = person?.primaryPhone.orEmpty()
+    var phone by remember(group.key) { mutableStateOf(savedPhone) }
+    var name by remember(group.key) { mutableStateOf("") }
+
+    LaunchedEffect(savedPhone) {
+        if (phone.isBlank() && savedPhone.isNotBlank()) phone = savedPhone
+    }
+
+    val found = matchedPerson(phone, people)
+    val isNew = phone.filter(Char::isDigit).length >= 7 && found == null
+
+    GlassCard(padding = 12.dp, radius = 22.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(13.dp))
+                    .background(if (person == null) colors.surfaceAlt else colors.brandSoft)
+                    .border(
+                        1.dp,
+                        if (person == null) colors.border else colors.brand.copy(alpha = 0.25f),
+                        RoundedCornerShape(13.dp),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (person == null) {
+                    Icon(
+                        AppIcons.user(),
+                        contentDescription = null,
+                        tint = colors.textMuted,
+                        modifier = Modifier.size(17.dp),
+                    )
+                } else {
+                    Text(
+                        text = TextUtils.initials(person.name),
+                        color = colors.brandDeep,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                }
+            }
+            Spacer(Modifier.width(9.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = "کەس",
+                    color = colors.textMuted,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.height(1.dp))
+                Text(
+                    text = found?.name ?: person?.name ?: "بێ کەس",
+                    color = colors.textPrimary,
+                    fontSize = 14.5.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(9.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            GlassInput(
+                value = phone,
+                onValueChange = { phone = it },
+                placeholder = "ژمارەی کەس…",
+                leading = AppIcons.call(),
+                minHeight = 44.dp,
+                keyboardType = KeyboardType.Phone,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(7.dp))
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .shadow(
+                        8.dp,
+                        RoundedCornerShape(14.dp),
+                        clip = false,
+                        ambientColor = colors.brand.copy(alpha = 0.45f),
+                        spotColor = colors.brand.copy(alpha = 0.45f),
+                    )
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(lerp(colors.brand, Color.White, 0.22f), colors.brand),
+                        ),
+                    )
+                    .border(1.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                    .clickable {
+                        if (phone.filter(Char::isDigit).length >= 7) {
+                            onAssign(phone.trim(), name.trim())
+                            focus.clearFocus()
+                        }
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    AppIcons.check(),
+                    contentDescription = "دانانی کەس",
+                    tint = colors.onBrand,
+                    modifier = Modifier.size(19.dp),
+                )
+            }
+        }
+
+        if (isNew) {
+            Spacer(Modifier.height(8.dp))
+            GlassInput(
+                value = name,
+                onValueChange = { name = it },
+                placeholder = "ناوی ئەم کەسی نوێ…",
+                leading = AppIcons.user(),
+                minHeight = 44.dp,
+            )
+        }
+
+        Spacer(Modifier.height(7.dp))
+        Text(
+            text = when {
+                found != null -> "ژمارەکە هی «" + found.name + "»ە — کاڵاکان دەچنە لای ئەو"
+                isNew -> "کەسێکی نوێ بەم ژمارەیە دروست دەبێت و کاڵاکان بۆی دەخەزنرێن"
+                person != null -> "ژمارەیەکی نوێ بنووسە و ✓ دابگرە بۆ نوێکردنەوەی کەسەکە"
+                else -> "ژمارە بنووسە و ✓ دابگرە — کەسەکە دەدۆزرێتەوە یان دروست دەبێت"
+            },
+            color = colors.textSecondary,
+            fontSize = 11.sp,
+        )
     }
 }
 
@@ -834,6 +1000,17 @@ private fun NoteCard(text: String, onSave: (String) -> Unit) {
     }
 }
 
+/** The saved person whose number ends with the digits typed (last 9). */
+private fun matchedPerson(raw: String, people: List<Customer>): Customer? {
+    val digits = raw.filter(Char::isDigit).takeLast(9)
+    if (digits.length < 7) return null
+    return people.firstOrNull { person ->
+        person.allPhones.any { number ->
+            number.filter(Char::isDigit).takeLast(9) == digits
+        }
+    }
+}
+
 /**
  * «داواکاریی نوێ» — one sheet for a whole order: pick the person (or «بێ کەس»),
  * write as many goods rows as you need, and save them all at once.
@@ -846,12 +1023,17 @@ fun GoodSheet(
     initial: GoodItem?,
     customers: List<Customer>,
     onDismiss: () -> Unit,
-    onSave: (List<GoodItem>) -> Unit,
+    onCommit: (
+        items: List<GoodItem>,
+        customerId: String?,
+        customerName: String,
+        phone: String,
+        typedName: String,
+    ) -> Unit,
     presetCustomerId: String? = null,
     presetCustomerName: String? = null,
     presetOwnerKey: String = "",
     onAutoSave: (List<GoodItem>) -> Unit = {},
-    onSaveNewOwner: (List<GoodItem>, String /* name */, String /* phone */) -> Unit = { _, _, _ -> },
 ) {
     val colors = LocalAppColors.current
     val focus = LocalFocusManager.current
@@ -876,18 +1058,24 @@ fun GoodSheet(
     /* Which «خانەی کاڵا» the goods belong to while they have no person. */
     var ownerKey by remember { mutableStateOf(initial?.ownerKey ?: presetOwnerKey) }
     var error by remember { mutableStateOf<String?>(null) }
-    var ownerPhone by remember { mutableStateOf("") }
-    var ownerTypedName by remember { mutableStateOf("") }
-
-    // Type the number first: the saved person is found and picked automatically,
-    // exactly like the reference flow.
-    fun matchByPhone(raw: String): Customer? {
-        val digits = raw.filter(Char::isDigit).takeLast(9)
-        if (digits.length < 7) return null
-        return customers.firstOrNull { person ->
-            person.allPhones.any { number -> number.filter(Char::isDigit).takeLast(9) == digits }
-        }
+    var ownerPhone by remember {
+        mutableStateOf(
+            (presetCustomerId ?: initial?.customerId)
+                ?.let { id -> customers.firstOrNull { person -> person.id == id }?.primaryPhone }
+                .orEmpty(),
+        )
     }
+    var ownerTypedName by remember { mutableStateOf("") }
+    /* «بێ کەس» is a choice, never a default: nothing is highlighted until the
+       driver taps it (or he came from a «بێ کەس» cell). */
+    var nobodyChosen by remember {
+        mutableStateOf(
+            (initial?.customerId ?: presetCustomerId) == null && presetOwnerKey.isNotBlank(),
+        )
+    }
+    val typedDigits = ownerPhone.filter(Char::isDigit)
+    val phoneMatch: Customer? = if (typedDigits.length >= 7) matchedPerson(ownerPhone, customers) else null
+    val phoneIsNew = typedDigits.length >= 7 && phoneMatch == null
 
     fun update(index: Int, change: (GoodDraft) -> GoodDraft) {
         val copy = rows.toMutableList()
@@ -942,7 +1130,22 @@ fun GoodSheet(
     ModalBottomSheet(
         onDismissRequest = {
             val items = buildItems()
-            if (items.isNotEmpty()) onAutoSave(items)
+            if (items.isNotEmpty()) {
+                /* Closing the sheet never invents a new person, but goods that
+                   already have a person (picked or found by number) are moved to
+                   him at once — they can never stay behind in «بێ کەس». */
+                if (customerId != null || phoneMatch != null) {
+                    onCommit(
+                        items,
+                        customerId,
+                        customerName.orEmpty(),
+                        ownerPhone.trim(),
+                        ownerTypedName.trim(),
+                    )
+                } else {
+                    onAutoSave(items)
+                }
+            }
             onDismiss()
         },
         sheetState = sheetState,
@@ -995,86 +1198,109 @@ fun GoodSheet(
 
             Spacer(Modifier.height(16.dp))
 
-            /* ------------------------------------------------------- customer */
+            /* ------------------------------------------------------------- کەس
+               Number first — the saved name comes up by itself. Nothing is
+               picked automatically: «بێ کەس» is a choice, not a default. */
             Text(
-                text = "کڕیار",
+                text = "کەس",
                 color = colors.textPrimary,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.ExtraBold,
             )
             Spacer(Modifier.height(8.dp))
             GlassInput(
-                value = query,
-                onValueChange = { query = it },
-                placeholder = "گەڕان بە ناو یان ژمارە…",
-                leading = AppIcons.search(),
-                minHeight = 46.dp,
-            )
-
-            Spacer(Modifier.height(8.dp))
-            GlassInput(
                 value = ownerPhone,
                 onValueChange = { typed ->
                     ownerPhone = typed
-                    val found = matchByPhone(typed)
+                    val found = matchedPerson(typed, customers)
                     if (found != null) {
                         customerId = found.id
                         customerName = found.name
                         ownerKey = ""
+                        nobodyChosen = false
                     }
                 },
-                placeholder = "ژمارەی کڕیار (بۆ دۆزینەوە یان زیادکردنی نوێ)…",
+                placeholder = "ژمارەی کەس — بۆ دۆزینەوە یان کەسێکی نوێ…",
                 leading = AppIcons.call(),
                 minHeight = 46.dp,
                 keyboardType = KeyboardType.Phone,
             )
 
-            if (customerId == null && ownerPhone.isNotBlank()) {
-                Spacer(Modifier.height(8.dp))
-                GlassInput(
-                    value = ownerTypedName,
-                    onValueChange = { ownerTypedName = it },
-                    placeholder = "ناوی کڕیاری نوێ…",
-                    leading = AppIcons.user(),
-                    minHeight = 46.dp,
-                )
+            /* What the app understood from that number — said plainly. */
+            val pickedName: String? = customerName
+            val statusText: String? = when {
+                phoneMatch != null ->
+                    "دۆزرایەوە: «" + phoneMatch.name + "» — کاڵاکان بۆ ئەم کەسە دەخەزنرێن"
+                phoneIsNew && nobodyChosen ->
+                    "کەسێکی نوێ بەم ژمارەیە دروست دەبێت"
+                phoneIsNew ->
+                    "کەسێکی نوێ بەم ژمارەیە دروست دەبێت — ناوەکەی بنووسە"
+                nobodyChosen ->
+                    "بێ کەس — کاڵاکان بە بێ ناو دەخەزنرێن"
+                pickedName != null ->
+                    "دەبێت بۆ «" + pickedName + "» — دەتوانیت بگۆڕیت"
+                else ->
+                    "کەسێک هەڵبژێرە، ژمارەیەک بنووسە، یان «بێ کەس» دابگرە"
             }
-
-            customerName?.let { picked ->
-                Spacer(Modifier.height(8.dp))
+            statusText?.let { text ->
+                Spacer(Modifier.height(7.dp))
                 Row(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(colors.brandSoft)
-                        .border(1.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(50))
-                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(13.dp))
+                        .background(colors.brandSoft.copy(alpha = 0.7f))
+                        .border(1.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(13.dp))
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        AppIcons.user(),
+                        if (phoneMatch != null || pickedName != null) AppIcons.check() else AppIcons.user(),
                         contentDescription = null,
                         tint = colors.brandDeep,
                         modifier = Modifier.size(13.dp),
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = "دەبێت بۆ «$picked» — دەتوانیت بگۆڕیت",
+                        text = text,
                         color = colors.brandDeep,
-                        fontSize = 11.sp,
+                        fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold,
                     )
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
+            if (phoneIsNew || (customerId == null && ownerPhone.isNotBlank() && phoneMatch == null)) {
+                Spacer(Modifier.height(8.dp))
+                GlassInput(
+                    value = ownerTypedName,
+                    onValueChange = { ownerTypedName = it },
+                    placeholder = "ناوی کەسی نوێ…",
+                    leading = AppIcons.user(),
+                    minHeight = 46.dp,
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+            GlassInput(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = "گەڕان بە ناو…",
+                leading = AppIcons.search(),
+                minHeight = 42.dp,
+                textSize = 12.5.sp,
+            )
+
+            Spacer(Modifier.height(9.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
                     SelectChip(
                         label = "بێ کەس",
-                        selected = customerId == null,
+                        selected = customerId == null && nobodyChosen,
                         onClick = {
                             customerId = null
                             customerName = null
+                            nobodyChosen = true
+                            ownerTypedName = ""
                             /* A cell of its own from now on — never merged. */
                             if (ownerKey.isBlank()) ownerKey = UUID.randomUUID().toString()
                         },
@@ -1087,6 +1313,7 @@ fun GoodSheet(
                         onClick = {
                             customerId = person.id
                             customerName = person.name
+                            nobodyChosen = false
                             ownerKey = ""
                             ownerPhone = person.primaryPhone
                             ownerTypedName = ""
@@ -1209,14 +1436,16 @@ fun GoodSheet(
                         val items = buildItems()
                         if (items.isEmpty()) {
                             error = "لانیکەم ناوێکی کاڵا بنووسە"
-                        } else if (customerId == null && ownerPhone.isNotBlank()) {
-                            onSaveNewOwner(
-                                items,
-                                ownerTypedName.trim(),
-                                ownerPhone.trim(),
-                            )
                         } else {
-                            onSave(items)
+                            /* One call decides the owner: matched number, the
+                               picked person, a new one, or «بێ کەس». */
+                            onCommit(
+                                items,
+                                customerId,
+                                customerName.orEmpty(),
+                                ownerPhone.trim(),
+                                ownerTypedName.trim(),
+                            )
                         }
                     },
                     icon = AppIcons.check(),
