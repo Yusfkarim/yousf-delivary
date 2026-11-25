@@ -191,11 +191,7 @@ fun HomeScreen(viewModel: MainViewModel) {
     var profileTarget by remember { mutableStateOf<Customer?>(null) }
     var lastProfile by remember { mutableStateOf<Customer?>(null) }
     var showSettings by remember { mutableStateOf(false) }
-    var showGoodSheet by remember { mutableStateOf(false) }
-    var editingGood by remember { mutableStateOf<com.yousif.delivery.data.GoodItem?>(null) }
-    var presetCustomerId by remember { mutableStateOf<String?>(null) }
-    var presetCustomerName by remember { mutableStateOf<String?>(null) }
-    var presetOwnerKey by remember { mutableStateOf("") }
+    var newCellSignal by remember { mutableStateOf(0) }
     var prefill by remember { mutableStateOf<MapPoint?>(null) }
     var pendingGpsCallback by remember { mutableStateOf<((Double, Double) -> Unit)?>(null) }
 
@@ -380,13 +376,8 @@ fun HomeScreen(viewModel: MainViewModel) {
                         viewModel.assignGoodsOwner(items, phone, name, currentId)
                     },
                     onDelete = { item -> viewModel.deleteGood(item) },
-                    onAddFor = { customerId, customerName, ownerKey ->
-                        presetCustomerId = customerId
-                        presetCustomerName = customerName
-                        presetOwnerKey = ownerKey.orEmpty()
-                        editingGood = null
-                        showGoodSheet = true
-                    },
+                    onAddGood = { item -> viewModel.saveGood(item) },
+                    newCellSignal = newCellSignal,
                 )
 
                 HomeTab.MAP -> MapScreen(
@@ -409,11 +400,8 @@ fun HomeScreen(viewModel: MainViewModel) {
                 onTab = { tab = it },
                 onAdd = {
                     if (tab == HomeTab.GOODS) {
-                        editingGood = null
-                        presetCustomerId = null
-                        presetCustomerName = null
-                        presetOwnerKey = java.util.UUID.randomUUID().toString()
-                        showGoodSheet = true
+                        tab = HomeTab.GOODS
+                        newCellSignal += 1
                     } else {
                         editing = null
                         prefill = null
@@ -478,39 +466,6 @@ fun HomeScreen(viewModel: MainViewModel) {
                     prefill = null
                 }
             },
-        )
-    }
-
-    if (showGoodSheet) {
-        GoodSheet(
-            initial = editingGood,
-            customers = customers,
-            presetCustomerId = presetCustomerId,
-            presetCustomerName = presetCustomerName,
-            presetOwnerKey = presetOwnerKey,
-            onDismiss = {
-                showGoodSheet = false
-                editingGood = null
-                presetCustomerId = null
-                presetCustomerName = null
-                presetOwnerKey = ""
-            },
-            onCommit = { items, customerId, customerName, phone, typedName ->
-                viewModel.commitGoods(
-                    items = items,
-                    pickedId = customerId,
-                    pickedName = customerName,
-                    phone = phone,
-                    typedName = typedName,
-                ) {
-                    showGoodSheet = false
-                    editingGood = null
-                    presetCustomerId = null
-                    presetCustomerName = null
-                    presetOwnerKey = ""
-                }
-            },
-            onAutoSave = { items -> viewModel.saveGoods(items) },
         )
     }
 

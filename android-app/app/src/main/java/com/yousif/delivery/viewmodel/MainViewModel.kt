@@ -448,6 +448,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             val ownerNow = owner
+            if (ownerNow != null) {
+                emit("کاڵاکان بۆ «" + ownerNow.name + "» دانران")
+            }
             withContext(Dispatchers.IO) {
                 goodDao.upsertAll(
                     items.map { item ->
