@@ -67,6 +67,9 @@ import com.yousif.delivery.ui.theme.LocalAppColors
 import com.yousif.delivery.util.TextUtils
 import kotlinx.coroutines.delay
 import java.util.UUID
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 
 /**
  * «کاڵای کڕیار» — a clean **menu of owners**.
@@ -576,6 +579,7 @@ fun GoodSheet(
     presetCustomerId: String? = null,
     presetCustomerName: String? = null,
     onAutoSave: (List<GoodItem>) -> Unit = {},
+    onSaveNewOwner: (List<GoodItem>, String /* name */, String /* phone */) -> Unit = { _, _, _ -> },
 ) {
     val colors = LocalAppColors.current
     val focus = LocalFocusManager.current
@@ -598,6 +602,18 @@ fun GoodSheet(
     var customerId by remember { mutableStateOf(initial?.customerId ?: presetCustomerId) }
     var customerName by remember { mutableStateOf(initial?.customerName ?: presetCustomerName) }
     var error by remember { mutableStateOf<String?>(null) }
+    var ownerPhone by remember { mutableStateOf("") }
+    var ownerTypedName by remember { mutableStateOf("") }
+
+    // Type the number first: the saved person is found and picked automatically,
+    // exactly like the reference flow.
+    fun matchByPhone(raw: String): Customer? {
+        val digits = raw.filter(Char::isDigit).takeLast(9)
+        if (digits.length < 7) return null
+        return customers.firstOrNull { person ->
+            person.allPhones.any { number -> number.filter(Char::isDigit).takeLast(9) == digits }
+        }
+    }
 
     fun update(index: Int, change: (GoodDraft) -> GoodDraft) {
         val copy = rows.toMutableList()
@@ -685,8 +701,12 @@ fun GoodSheet(
                 Box(
                     modifier = Modifier
                         .size(48.dp)
+                        .shadow(10.dp, RoundedCornerShape(16.dp), clip = false, ambientColor = Color(0x33F97316), spotColor = Color(0x33F97316))
                         .clip(RoundedCornerShape(16.dp))
-                        .background(colors.brandSoft),
+                        .background(
+                            Brush.verticalGradient(listOf(Color(0xFFFFFFFF), colors.brandSoft)),
+                        )
+                        .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(16.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -708,44 +728,67 @@ fun GoodSheet(
                 fontWeight = FontWeight.ExtraBold,
             )
             Spacer(Modifier.height(8.dp))
-            OutlinedTextField(
+            GlassInput(
                 value = query,
                 onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                placeholder = {
-                    Text("گەڕان بە ناو یان ژمارە…", fontSize = 13.sp, color = colors.textMuted)
-                },
-                leadingIcon = {
-                    Icon(
-                        AppIcons.search(),
-                        contentDescription = null,
-                        tint = colors.textSecondary,
-                        modifier = Modifier.size(19.dp),
-                    )
-                },
-                trailingIcon = {
-                    if (query.isNotEmpty()) {
-                        IconButton(onClick = { query = "" }, modifier = Modifier.size(38.dp)) {
-                            Icon(
-                                AppIcons.close(),
-                                contentDescription = null,
-                                tint = colors.textMuted,
-                                modifier = Modifier.size(16.dp),
-                            )
-                        }
+                placeholder = "گەڕان بە ناو یان ژمارە…",
+                leading = AppIcons.search(),
+                minHeight = 46.dp,
+            )
+
+            Spacer(Modifier.height(8.dp))
+            GlassInput(
+                value = ownerPhone,
+                onValueChange = { typed ->
+                    ownerPhone = typed
+                    val found = matchByPhone(typed)
+                    if (found != null) {
+                        customerId = found.id
+                        customerName = found.name
                     }
                 },
-                shape = RoundedCornerShape(18.dp),
-                textStyle = TextStyle(fontSize = 13.5.sp, color = colors.textPrimary),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = colors.surfaceSunken,
-                    unfocusedContainerColor = colors.surfaceSunken,
-                    focusedBorderColor = colors.brand.copy(alpha = 0.55f),
-                    unfocusedBorderColor = colors.border,
-                    cursorColor = colors.brand,
-                ),
+                placeholder = "ژمارەی کڕیار (بۆ دۆزینەوە یان زیادکردنی نوێ)…",
+                leading = AppIcons.call(),
+                minHeight = 46.dp,
+                keyboardType = KeyboardType.Phone,
             )
+
+            if (customerId == null && ownerPhone.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                GlassInput(
+                    value = ownerTypedName,
+                    onValueChange = { ownerTypedName = it },
+                    placeholder = "ناوی کڕیاری نوێ…",
+                    leading = AppIcons.user(),
+                    minHeight = 46.dp,
+                )
+            }
+
+            customerName?.let { picked ->
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(colors.brandSoft)
+                        .border(1.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(50))
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        AppIcons.user(),
+                        contentDescription = null,
+                        tint = colors.brandDeep,
+                        modifier = Modifier.size(13.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "دەبێت بۆ «$picked» — دەتوانیت بگۆڕیت",
+                        color = colors.brandDeep,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
 
             Spacer(Modifier.height(10.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -766,6 +809,8 @@ fun GoodSheet(
                         onClick = {
                             customerId = person.id
                             customerName = person.name
+                            ownerPhone = person.primaryPhone
+                            ownerTypedName = ""
                         },
                     )
                 }
@@ -885,6 +930,12 @@ fun GoodSheet(
                         val items = buildItems()
                         if (items.isEmpty()) {
                             error = "لانیکەم ناوێکی کاڵا بنووسە"
+                        } else if (customerId == null && ownerPhone.isNotBlank()) {
+                            onSaveNewOwner(
+                                items,
+                                ownerTypedName.trim(),
+                                ownerPhone.trim(),
+                            )
                         } else {
                             onSave(items)
                         }
@@ -1015,8 +1066,14 @@ private fun StepCircle(icon: androidx.compose.ui.graphics.vector.ImageVector, on
     Box(
         modifier = Modifier
             .size(28.dp)
+            .shadow(5.dp, RoundedCornerShape(50), clip = false, ambientColor = colors.brand.copy(alpha = 0.4f), spotColor = colors.brand.copy(alpha = 0.4f))
             .clip(RoundedCornerShape(50))
-            .background(colors.brandSoft)
+            .background(
+                Brush.verticalGradient(
+                    listOf(lerp(colors.brandSoft, Color.White, 0.6f), colors.brandSoft),
+                ),
+            )
+            .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(50))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -1039,9 +1096,28 @@ private fun SelectChip(
     val shape = RoundedCornerShape(50)
     Row(
         modifier = Modifier
+            .shadow(
+                if (selected) 9.dp else 4.dp,
+                shape,
+                clip = false,
+                ambientColor = if (selected) colors.brand.copy(alpha = 0.5f) else Color(0x1A9A6A3E),
+                spotColor = if (selected) colors.brand.copy(alpha = 0.5f) else Color(0x1A9A6A3E),
+            )
             .clip(shape)
-            .background(if (selected) colors.brand else colors.surfaceSunken)
-            .border(1.dp, if (selected) colors.brand else colors.border, shape)
+            .background(
+                if (selected) {
+                    Brush.verticalGradient(
+                        listOf(
+                            lerp(colors.brand, Color.White, 0.26f),
+                            colors.brand,
+                            lerp(colors.brand, Color.Black, 0.16f),
+                        ),
+                    )
+                } else {
+                    Brush.verticalGradient(listOf(Color(0xFFFFFFFF), colors.surfaceSunken))
+                },
+            )
+            .border(1.dp, Color.White.copy(alpha = 0.45f), shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,

@@ -500,6 +500,14 @@ fun HomeScreen(viewModel: MainViewModel) {
                 }
             },
             onAutoSave = { items -> viewModel.saveGoods(items) },
+            onSaveNewOwner = { items, name, phone ->
+                viewModel.saveGoodsForOwner(items, name, phone) {
+                    showGoodSheet = false
+                    editingGood = null
+                    presetCustomerId = null
+                    presetCustomerName = null
+                }
+            },
         )
     }
 
@@ -809,46 +817,36 @@ private fun ShiningBrand(size: androidx.compose.ui.unit.Dp) {
 @Composable
 private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
     val colors = LocalAppColors.current
-    OutlinedTextField(
+    GlassInput(
         value = query,
         onValueChange = onQueryChange,
+        placeholder = "گەڕان: ناو، ژمارە، ناونیشان",
         modifier = Modifier
             .fillMaxWidth()
-            .height(50.dp)
             .padding(horizontal = 16.dp),
-        singleLine = true,
-        placeholder = {
-            Text("گەڕان: ناو، ژمارە، ناونیشان", fontSize = 12.5.sp, color = colors.textMuted)
-        },
-        leadingIcon = {
-            Icon(
-                AppIcons.search(),
-                contentDescription = null,
-                tint = colors.textSecondary,
-                modifier = Modifier.size(20.dp),
-            )
-        },
-        trailingIcon = {
+        leading = AppIcons.search(),
+        minHeight = 48.dp,
+        textSize = 13.sp,
+        trailing = {
             if (query.isNotEmpty()) {
-                IconButton(onClick = { onQueryChange("") }) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(colors.surface)
+                        .border(1.dp, colors.border, RoundedCornerShape(50))
+                        .clickable { onQueryChange("") },
+                    contentAlignment = Alignment.Center,
+                ) {
                     Icon(
                         AppIcons.close(),
                         contentDescription = "سڕینەوەی گەڕان",
                         tint = colors.textSecondary,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(13.dp),
                     )
                 }
             }
         },
-        shape = RoundedCornerShape(18.dp),
-        textStyle = TextStyle(fontSize = 13.sp, color = colors.textPrimary),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = if (colors.isDark) Color(0xFF241D19) else Color(0xFFFFFFFF),
-            unfocusedContainerColor = if (colors.isDark) Color(0xFF221B17) else Color(0xFFFFFBF7),
-            focusedBorderColor = colors.brand.copy(alpha = 0.55f),
-            unfocusedBorderColor = colors.border,
-            cursorColor = colors.brand,
-        ),
     )
 }
 

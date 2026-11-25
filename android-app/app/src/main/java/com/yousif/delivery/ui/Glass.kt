@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -17,18 +18,28 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yousif.delivery.ui.theme.LocalAppColors
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.BasicTextField
 
 /**
  * The creamy «glass» surface used by the goods section: a milky gradient over the
@@ -215,5 +226,94 @@ fun GlassEmptyState(
             fontSize = 12.5.sp,
             lineHeight = 19.sp,
         )
+    }
+}
+
+/**
+ * A sunken 3D input: the glass slab is pressed *into* the cream, so it carries a
+ * darker top edge and a light bottom edge. Built on BasicTextField, so the text
+ * can never be clipped by a fixed height the way an OutlinedTextField's is.
+ */
+@Composable
+fun GlassInput(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    leading: ImageVector? = null,
+    trailing: (@Composable () -> Unit)? = null,
+    singleLine: Boolean = true,
+    minHeight: Dp = 46.dp,
+    textSize: TextUnit = 13.sp,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    imeAction: ImeAction = ImeAction.Done,
+    textAlign: TextAlign? = null,
+) {
+    val colors = LocalAppColors.current
+    val shape = RoundedCornerShape(16.dp)
+    val focus = LocalFocusManager.current
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = minHeight)
+            .clip(shape)
+            .background(
+                Brush.verticalGradient(
+                    if (colors.isDark) listOf(Color(0xFF201913), Color(0xFF2A211B))
+                    else listOf(Color(0xFFF6E9DC), Color(0xFFFFFDFA)),
+                ),
+            )
+            .border(
+                1.dp,
+                if (colors.isDark) Color(0xFF14100D) else Color(0xFFE8D6C4),
+                shape,
+            )
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (leading != null) {
+            Icon(
+                leading,
+                contentDescription = null,
+                tint = colors.textSecondary,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(9.dp))
+        }
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (value.isEmpty()) {
+                Text(
+                    text = placeholder,
+                    color = colors.textMuted,
+                    fontSize = textSize,
+                    maxLines = if (singleLine) 1 else 3,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = textAlign ?: TextAlign.Start,
+                )
+            }
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.fillMaxWidth(),
+                textStyle = TextStyle(
+                    fontSize = textSize,
+                    color = colors.textPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = textAlign ?: TextAlign.Start,
+                ),
+                singleLine = singleLine,
+                cursorBrush = SolidColor(colors.brand),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = keyboardType,
+                    imeAction = imeAction,
+                ),
+                keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }),
+                decorationBox = { inner -> inner() },
+            )
+        }
+        if (trailing != null) {
+            Spacer(Modifier.width(6.dp))
+            trailing()
+        }
     }
 }
